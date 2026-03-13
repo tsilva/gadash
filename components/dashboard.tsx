@@ -17,9 +17,12 @@ import {
   getGoogleClientId,
 } from "@/lib/config";
 import {
+  clearStoredGoogleAuth,
   clearSavedGoogleSession,
   hasSavedGoogleSession,
+  loadStoredGoogleAuth,
   saveGoogleSession,
+  saveStoredGoogleAuth,
 } from "@/lib/auth-session";
 import { summarizeSnapshots, getEmptySnapshot } from "@/lib/dashboard";
 import { fetchPropertyRealtimeSnapshot } from "@/lib/ga4";
@@ -213,6 +216,7 @@ export function Dashboard() {
       accessTokenRef.current = null;
       setAccessToken(null);
       setExpiresAt(null);
+      clearStoredGoogleAuth(window.sessionStorage);
       setProperties(configuredDashboardProperties);
       setSnapshots(createLoadingState(configuredDashboardProperties));
       setStale(false);
@@ -235,6 +239,23 @@ export function Dashboard() {
     }
 
     tokenClientRef.current.requestAccessToken({ prompt });
+  }, []);
+
+  useEffect(() => {
+    const restoredAuth = loadStoredGoogleAuth(window.sessionStorage);
+
+    if (!restoredAuth) {
+      return;
+    }
+
+    queueMicrotask(() => {
+      accessTokenRef.current = restoredAuth.accessToken;
+      setAccessToken(restoredAuth.accessToken);
+      setExpiresAt(restoredAuth.expiresAt);
+      setGlobalError(null);
+      setStale(false);
+      setPhase("loading");
+    });
   }, []);
 
   useEffect(() => {
@@ -261,8 +282,14 @@ export function Dashboard() {
         }
 
         saveGoogleSession(window.localStorage);
+        const nextExpiresAt = Date.now() + response.expires_in * 1000;
+
+        saveStoredGoogleAuth(window.sessionStorage, {
+          accessToken: response.access_token,
+          expiresAt: nextExpiresAt,
+        });
         setAccessToken(response.access_token);
-        setExpiresAt(Date.now() + response.expires_in * 1000);
+        setExpiresAt(nextExpiresAt);
         setGlobalError(null);
         setStale(false);
         setPhase("loading");
@@ -274,6 +301,10 @@ export function Dashboard() {
         resetSignedOutState(isSilentRequest ? null : `Google sign-in failed: ${error.type}`);
       },
     });
+
+    if (loadStoredGoogleAuth(window.sessionStorage)) {
+      return;
+    }
 
     if (!silentRestoreAttemptedRef.current && hasSavedGoogleSession(window.localStorage)) {
       silentRestoreAttemptedRef.current = true;
@@ -335,6 +366,7 @@ export function Dashboard() {
         setPhase("signed_out");
         setAccessToken(null);
         setExpiresAt(null);
+        clearStoredGoogleAuth(window.sessionStorage);
         clearSavedGoogleSession(window.localStorage);
       }
     });
@@ -364,6 +396,7 @@ export function Dashboard() {
       window.google.accounts.oauth2.revoke(accessToken, () => undefined);
     }
 
+    clearStoredGoogleAuth(window.sessionStorage);
     clearSavedGoogleSession(window.localStorage);
     resetSignedOutState(null);
   }

@@ -2,7 +2,7 @@
 
 Client-side Next.js dashboard for GA4 Realtime data. Each viewer signs in with Google and the app auto-discovers the GA4 properties their account can access.
 
-The app intentionally supports silent session restoration on trusted browsers by storing only a local session marker, never the OAuth token itself. On shared devices, use the in-app `Sign out` button before closing the tab.
+The app keeps the live OAuth access token only in `sessionStorage`, so reloading the same tab stays signed in until the token expires or the tab is closed. It also keeps a local session marker for best-effort silent restore on trusted browsers. On shared devices, use the in-app `Sign out` button before closing the tab.
 
 ## Setup
 

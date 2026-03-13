@@ -2,10 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  GOOGLE_AUTH_SESSION_KEY,
   GOOGLE_SESSION_MARKER_KEY,
+  clearStoredGoogleAuth,
   clearSavedGoogleSession,
   hasSavedGoogleSession,
+  loadStoredGoogleAuth,
   saveGoogleSession,
+  saveStoredGoogleAuth,
 } from "../lib/auth-session.ts";
 
 function createStorage() {
@@ -54,4 +58,56 @@ test("clearSavedGoogleSession removes the stored marker", () => {
 
   assert.equal(hasSavedGoogleSession(storage), false);
   assert.equal(storage.getItem(GOOGLE_SESSION_MARKER_KEY), null);
+});
+
+test("saveStoredGoogleAuth persists a tab-scoped token payload", () => {
+  const storage = createStorage();
+
+  saveStoredGoogleAuth(storage, {
+    accessToken: "access-token",
+    expiresAt: 2_000,
+  });
+
+  assert.deepEqual(JSON.parse(storage.getItem(GOOGLE_AUTH_SESSION_KEY) ?? "null"), {
+    accessToken: "access-token",
+    expiresAt: 2_000,
+  });
+});
+
+test("loadStoredGoogleAuth returns a valid unexpired token payload", () => {
+  const storage = createStorage();
+
+  saveStoredGoogleAuth(storage, {
+    accessToken: "access-token",
+    expiresAt: 2_000,
+  });
+
+  assert.deepEqual(loadStoredGoogleAuth(storage, 1_000), {
+    accessToken: "access-token",
+    expiresAt: 2_000,
+  });
+});
+
+test("loadStoredGoogleAuth rejects expired payloads and removes them", () => {
+  const storage = createStorage();
+
+  saveStoredGoogleAuth(storage, {
+    accessToken: "expired-token",
+    expiresAt: 1_000,
+  });
+
+  assert.equal(loadStoredGoogleAuth(storage, 1_000), null);
+  assert.equal(storage.getItem(GOOGLE_AUTH_SESSION_KEY), null);
+});
+
+test("clearStoredGoogleAuth removes the persisted token payload", () => {
+  const storage = createStorage();
+
+  saveStoredGoogleAuth(storage, {
+    accessToken: "access-token",
+    expiresAt: 2_000,
+  });
+  clearStoredGoogleAuth(storage);
+
+  assert.equal(storage.getItem(GOOGLE_AUTH_SESSION_KEY), null);
 });
