@@ -394,7 +394,7 @@ export function Dashboard() {
             return (
               <article className="property-card" key={property.id}>
                 <div className="property-card__header">
-                  <div>
+                  <div className="property-card__title">
                     <p className="property-card__label">Property</p>
                     <h2>{snapshot.label}</h2>
                   </div>
