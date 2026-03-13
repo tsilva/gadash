@@ -7,19 +7,20 @@
     "/Users/tsilva/.repologogen/config.yaml"
   ],
   "metadata": {
-    "title": "GADash: Google Analytics 4 Real-time Dashboard with Next.js",
-    "short_description": "A client-side Next.js dashboard that visualizes real-time GA4 data by auto-discovering properties via Google OAuth.",
-    "social_title": "GADash - Real-time GA4 Dashboard for Next.js",
-    "social_description": "Effortlessly monitor GA4 real-time metrics. Features Google sign-in, automated property discovery, and a client-side Next.js architecture.",
+    "title": "GADash - Real-time GA4 Dashboard for Next.js",
+    "short_description": "A client-side Next.js application that auto-discovers and displays real-time GA4 analytics properties using Google OAuth and Data APIs.",
+    "social_title": "GADash: Client-Side Google Analytics 4 Real-time Dashboard",
+    "social_description": "Securely visualize GA4 data with automatic property discovery. Built with Next.js, Google OAuth, and the GA4 Data API for real-time insights.",
     "keywords": [
-      "ga4 dashboard",
-      "google analytics api",
-      "next.js",
-      "real-time data",
-      "google oauth",
-      "ga4 admin api",
-      "data visualization",
-      "react-analytics"
+      "ga4",
+      "google-analytics-4",
+      "nextjs",
+      "real-time-dashboard",
+      "google-oauth",
+      "data-api",
+      "client-side",
+      "analytics-dashboard",
+      "react"
     ]
   },
   "assets": [
