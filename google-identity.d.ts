@@ -18,7 +18,7 @@ declare global {
   };
 
   type GoogleTokenRequest = {
-    prompt?: "" | "consent" | "select_account";
+    prompt?: "" | "none" | "consent" | "select_account";
     hint?: string;
   };
 
