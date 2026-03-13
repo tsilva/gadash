@@ -21,8 +21,32 @@ const googleSans = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "GADash",
-  description: "Viewer-scoped GA4 realtime dashboard built with Next.js.",
+  title: "GADash - Real-time GA4 Dashboard for Next.js",
+  description:
+    "A client-side Next.js application that auto-discovers and displays real-time GA4 analytics properties using Google OAuth and Data APIs.",
+  keywords: [
+    "ga4",
+    "google-analytics-4",
+    "nextjs",
+    "real-time-dashboard",
+    "google-oauth",
+    "data-api",
+    "client-side",
+    "analytics-dashboard",
+    "react",
+  ],
+  openGraph: {
+    title: "GADash: Client-Side Google Analytics 4 Real-time Dashboard",
+    description:
+      "Securely visualize GA4 data with automatic property discovery. Built with Next.js, Google OAuth, and the GA4 Data API for real-time insights.",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GADash: Client-Side Google Analytics 4 Real-time Dashboard",
+    description:
+      "Securely visualize GA4 data with automatic property discovery. Built with Next.js, Google OAuth, and the GA4 Data API for real-time insights.",
+  },
 };
 
 export default function RootLayout({
