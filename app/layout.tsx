@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, IBM_Plex_Mono } from "next/font/google";
+import { IBM_Plex_Mono, Roboto, Space_Grotesk } from "next/font/google";
 
 import "./globals.css";
 
@@ -14,6 +14,12 @@ const mono = IBM_Plex_Mono({
   variable: "--font-mono",
 });
 
+const googleSans = Roboto({
+  subsets: ["latin"],
+  weight: ["500"],
+  variable: "--font-google",
+});
+
 export const metadata: Metadata = {
   title: "GADash",
   description: "Viewer-scoped GA4 realtime dashboard built with Next.js.",
@@ -26,8 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${sans.variable} ${mono.variable}`}>{children}</body>
+      <body className={`${sans.variable} ${mono.variable} ${googleSans.variable}`}>{children}</body>
     </html>
   );
 }
-
