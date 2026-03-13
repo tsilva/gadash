@@ -222,7 +222,7 @@ export function Dashboard() {
     [clearRefreshTimer],
   );
 
-  const requestAccessToken = useCallback((prompt: "" | "consent" | "select_account") => {
+  const requestAccessToken = useCallback((prompt: "" | "none" | "consent" | "select_account") => {
     if (!tokenClientRef.current) {
       setGlobalError("Google sign-in is not ready yet.");
       return;
@@ -230,7 +230,7 @@ export function Dashboard() {
 
     lastPromptRef.current = prompt;
 
-    if (prompt !== "") {
+    if (prompt === "consent" || prompt === "select_account") {
       setPhase("authorizing");
     }
 
@@ -251,7 +251,7 @@ export function Dashboard() {
       scope: GOOGLE_SCOPE,
       callback: (response) => {
         if (response.error || !response.access_token) {
-          const isSilentRequest = lastPromptRef.current === "";
+          const isSilentRequest = lastPromptRef.current === "none";
 
           clearSavedGoogleSession(window.localStorage);
           resetSignedOutState(
@@ -268,7 +268,7 @@ export function Dashboard() {
         setPhase("loading");
       },
       error_callback: (error) => {
-        const isSilentRequest = lastPromptRef.current === "";
+        const isSilentRequest = lastPromptRef.current === "none";
 
         clearSavedGoogleSession(window.localStorage);
         resetSignedOutState(isSilentRequest ? null : `Google sign-in failed: ${error.type}`);
@@ -278,7 +278,7 @@ export function Dashboard() {
     if (!silentRestoreAttemptedRef.current && hasSavedGoogleSession(window.localStorage)) {
       silentRestoreAttemptedRef.current = true;
       queueMicrotask(() => {
-        requestAccessToken("");
+        requestAccessToken("none");
       });
     }
   }, [configError, requestAccessToken, resetSignedOutState, scriptReady]);
@@ -347,7 +347,7 @@ export function Dashboard() {
 
     const msUntilRefresh = Math.max(expiresAt - Date.now() - 60_000, 5_000);
     const timer = window.setTimeout(() => {
-      requestAccessToken("");
+      requestAccessToken("none");
     }, msUntilRefresh);
 
     return () => window.clearTimeout(timer);
