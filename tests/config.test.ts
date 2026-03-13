@@ -24,3 +24,7 @@ test("parseDashboardProperties throws on invalid payloads", () => {
       "NEXT_PUBLIC_GA_PROPERTIES_JSON must be an array of { id, label, sortOrder? } objects.",
   });
 });
+
+test("parseDashboardProperties returns an empty list when unset", () => {
+  assert.deepEqual(parseDashboardProperties(undefined), []);
+});

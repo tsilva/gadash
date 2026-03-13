@@ -10,10 +10,15 @@ import {
   useState,
 } from "react";
 
-import { dashboardProperties, getAuthorizedOrigins, getGoogleClientId } from "@/lib/config";
+import { discoverDashboardProperties } from "@/lib/admin";
+import {
+  configuredDashboardProperties,
+  getAuthorizedOrigins,
+  getGoogleClientId,
+} from "@/lib/config";
 import { summarizeSnapshots, getEmptySnapshot } from "@/lib/dashboard";
 import { fetchPropertyRealtimeSnapshot } from "@/lib/ga4";
-import type { PropertyRealtimeSnapshot } from "@/lib/types";
+import type { DashboardProperty, PropertyRealtimeSnapshot } from "@/lib/types";
 
 const GOOGLE_SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
 const POLL_INTERVAL_MS = 30_000;
@@ -59,10 +64,6 @@ function getConfigError(): string | null {
     return "Set NEXT_PUBLIC_GOOGLE_CLIENT_ID before using the dashboard.";
   }
 
-  if (dashboardProperties.length === 0) {
-    return "Set NEXT_PUBLIC_GA_PROPERTIES_JSON with at least one GA4 property.";
-  }
-
   if (!isAuthorizedOrigin()) {
     return `This origin is not allowed for Google OAuth: ${window.location.origin}`;
   }
@@ -70,8 +71,8 @@ function getConfigError(): string | null {
   return null;
 }
 
-function createLoadingState(): PropertyRealtimeSnapshot[] {
-  return dashboardProperties.map((property) => getEmptySnapshot(property.id, property.label));
+function createLoadingState(properties: DashboardProperty[]): PropertyRealtimeSnapshot[] {
+  return properties.map((property) => getEmptySnapshot(property.id, property.label));
 }
 
 export function Dashboard() {
@@ -81,12 +82,16 @@ export function Dashboard() {
   const [scriptReady, setScriptReady] = useState(false);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
-  const [snapshots, setSnapshots] = useState<PropertyRealtimeSnapshot[]>(createLoadingState);
+  const [properties, setProperties] = useState<DashboardProperty[]>(configuredDashboardProperties);
+  const [snapshots, setSnapshots] = useState<PropertyRealtimeSnapshot[]>(
+    createLoadingState(configuredDashboardProperties),
+  );
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
 
   const tokenClientRef = useRef<GoogleTokenClient | null>(null);
   const accessTokenRef = useRef<string | null>(null);
+  const propertiesRef = useRef<DashboardProperty[]>(properties);
   const snapshotsRef = useRef<PropertyRealtimeSnapshot[]>(snapshots);
   const refreshDataRef = useRef<() => Promise<void>>(async () => undefined);
   const refreshTimerRef = useRef<number | null>(null);
@@ -124,8 +129,16 @@ export function Dashboard() {
     });
 
     const nextSnapshots = await Promise.all(
-      dashboardProperties.map((property) => fetchPropertyRealtimeSnapshot(property, activeToken)),
+      propertiesRef.current.map((property) => fetchPropertyRealtimeSnapshot(property, activeToken)),
     );
+
+    if (propertiesRef.current.length === 0) {
+      setSnapshots([]);
+      setGlobalError("No GA4 properties were discovered for this Google account.");
+      setPhase("loaded");
+      clearRefreshTimer();
+      return;
+    }
 
     const hasAccessibleProperty = nextSnapshots.some((snapshot) => snapshot.status === "ok");
     const hasBlockingErrors = nextSnapshots.every((snapshot) => snapshot.status !== "ok");
@@ -206,6 +219,10 @@ export function Dashboard() {
   }, [accessToken]);
 
   useEffect(() => {
+    propertiesRef.current = properties;
+  }, [properties]);
+
+  useEffect(() => {
     snapshotsRef.current = snapshots;
   }, [snapshots]);
 
@@ -219,8 +236,37 @@ export function Dashboard() {
       return;
     }
 
-    queueMicrotask(() => {
-      void refreshDataRef.current();
+    queueMicrotask(async () => {
+      try {
+        const discoveredProperties = await discoverDashboardProperties(accessToken);
+
+        if (discoveredProperties.length === 0) {
+          setProperties([]);
+          setSnapshots([]);
+          setGlobalError("No GA4 properties were discovered for this Google account.");
+          setStale(false);
+          setPhase("loaded");
+          return;
+        }
+
+        propertiesRef.current = discoveredProperties;
+        setProperties(discoveredProperties);
+        setSnapshots(createLoadingState(discoveredProperties));
+        setGlobalError(null);
+        setStale(false);
+        void refreshDataRef.current();
+      } catch (error) {
+        setProperties(configuredDashboardProperties);
+        setSnapshots(createLoadingState(configuredDashboardProperties));
+        setGlobalError(
+          error instanceof Error
+            ? `Property discovery failed: ${error.message}`
+            : "Property discovery failed.",
+        );
+        setPhase("signed_out");
+        setAccessToken(null);
+        setExpiresAt(null);
+      }
     });
   }, [accessToken, clearRefreshTimer]);
 
@@ -250,7 +296,8 @@ export function Dashboard() {
 
     setAccessToken(null);
     setExpiresAt(null);
-    setSnapshots(createLoadingState());
+    setProperties(configuredDashboardProperties);
+    setSnapshots(createLoadingState(configuredDashboardProperties));
     setStale(false);
     setGlobalError(null);
     setPhase("signed_out");
@@ -330,7 +377,7 @@ export function Dashboard() {
           <article className="summary-card">
             <p className="summary-card__label">Coverage</p>
             <strong>
-              {summary.accessibleCount}/{dashboardProperties.length}
+              {summary.accessibleCount}/{properties.length}
             </strong>
             <span>
               {summary.inaccessibleCount} inaccessible, {summary.errorCount} failed
@@ -339,7 +386,7 @@ export function Dashboard() {
         </section>
 
         <section className="properties">
-          {dashboardProperties.map((property) => {
+          {properties.map((property) => {
             const snapshot =
               deferredSnapshots.find((entry) => entry.propertyId === property.id) ??
               getEmptySnapshot(property.id, property.label);

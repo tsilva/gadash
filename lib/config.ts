@@ -53,7 +53,7 @@ export function parseDashboardProperties(rawValue: string | undefined): Dashboar
   });
 }
 
-export const dashboardProperties = parseDashboardProperties(
+export const configuredDashboardProperties = parseDashboardProperties(
   process.env.NEXT_PUBLIC_GA_PROPERTIES_JSON,
 );
 
@@ -64,4 +64,3 @@ export function getGoogleClientId(): string {
 export function getAuthorizedOrigins(): string[] {
   return AUTHORIZED_ORIGINS;
 }
-
