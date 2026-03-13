@@ -80,6 +80,14 @@ function createLoadingState(properties: DashboardProperty[]): PropertyRealtimeSn
   return properties.map((property) => getEmptySnapshot(property.id, property.label));
 }
 
+function getSessionNotice(accessToken: string | null): string {
+  if (accessToken) {
+    return "Shared device? Use Sign out to revoke this tab and clear silent restore for this browser.";
+  }
+
+  return "Trusted browser only: if your Google session is still active, this dashboard may restore access after reload.";
+}
+
 function GoogleMark() {
   return (
     <svg
@@ -414,6 +422,7 @@ export function Dashboard() {
               </button>
             )}
           </div>
+          <p className="hero__security-note">{getSessionNotice(accessToken)}</p>
         </section>
 
         <section className="status-bar">
