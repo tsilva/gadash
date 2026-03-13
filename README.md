@@ -1,20 +1,20 @@
 # GADash
 
-Client-side Next.js dashboard for GA4 Realtime data. Each viewer signs in with Google and sees totals only for the GA4 properties their account can access.
+Client-side Next.js dashboard for GA4 Realtime data. Each viewer signs in with Google and the app auto-discovers the GA4 properties their account can access.
 
 ## Setup
 
 1. Install dependencies with `npm install`.
 2. Copy `.env.example` to `.env.local`.
 3. Create a Google OAuth client of type `Web application`.
-4. Enable the Google Analytics Data API for that Google Cloud project.
+4. Enable both the Google Analytics Data API and the Google Analytics Admin API for that Google Cloud project.
 5. Add `http://localhost:3000` and your production domain to the OAuth client's Authorized JavaScript origins.
 6. Fill in:
    - `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
    - `NEXT_PUBLIC_GOOGLE_AUTHORIZED_ORIGINS`
-   - `NEXT_PUBLIC_GA_PROPERTIES_JSON`
+   - `NEXT_PUBLIC_GA_PROPERTIES_JSON` only if you want a fallback list when Admin API discovery is unavailable
 
-Example properties JSON:
+Optional fallback properties JSON:
 
 ```json
 [
