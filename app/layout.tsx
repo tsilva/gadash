@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Roboto, Space_Grotesk } from "next/font/google";
+import { IBM_Plex_Mono, Outfit, Roboto } from "next/font/google";
 
 import "./globals.css";
 
-const sans = Space_Grotesk({
+const sans = Outfit({
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
   variable: "--font-sans",
 });
 

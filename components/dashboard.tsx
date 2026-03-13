@@ -80,14 +80,6 @@ function createLoadingState(properties: DashboardProperty[]): PropertyRealtimeSn
   return properties.map((property) => getEmptySnapshot(property.id, property.label));
 }
 
-function getSessionNotice(accessToken: string | null): string {
-  if (accessToken) {
-    return "Shared device? Use Sign out to revoke this tab and clear silent restore for this browser.";
-  }
-
-  return "Trusted browser only: if your Google session is still active, this dashboard may restore access after reload.";
-}
-
 function GoogleMark() {
   return (
     <svg
@@ -390,14 +382,10 @@ export function Dashboard() {
         }}
       />
       <main className="shell">
-        <section className="hero">
+        <header className="hero">
           <div className="hero__copy">
-            <p className="eyebrow">GA4 Realtime cockpit</p>
-            <h1>Live users across your configured properties.</h1>
-            <p className="hero__lede">
-              Viewer-scoped totals, near-now activity, and graceful partial results for teams that
-              live in multiple GA4 properties.
-            </p>
+            <h1>GADash</h1>
+            <p className="hero__lede">Realtime GA4 dashboard</p>
           </div>
           <div className="hero__actions">
             {accessToken ? (
@@ -422,11 +410,10 @@ export function Dashboard() {
               </button>
             )}
           </div>
-          <p className="hero__security-note">{getSessionNotice(accessToken)}</p>
-        </section>
+        </header>
 
         <section className="status-bar">
-          <span>{accessToken ? "Signed in to Google Analytics" : "Signed out"}</span>
+          <span className={accessToken ? "status-bar__live-dot" : ""}>{accessToken ? "Live" : "Signed out"}</span>
           <span>{stale ? "Showing previous snapshot" : `Updated ${formatTimestamp(summary.fetchedAt)}`}</span>
         </section>
 
