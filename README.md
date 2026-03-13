@@ -2,6 +2,8 @@
 
 Client-side Next.js dashboard for GA4 Realtime data. Each viewer signs in with Google and the app auto-discovers the GA4 properties their account can access.
 
+The app intentionally supports silent session restoration on trusted browsers by storing only a local session marker, never the OAuth token itself. On shared devices, use the in-app `Sign out` button before closing the tab.
+
 ## Setup
 
 1. Install dependencies with `npm install`.
@@ -36,3 +38,6 @@ npm run dev
 - Put Cloudflare in front as DNS/CDN only.
 - Add the production origin to both `NEXT_PUBLIC_GOOGLE_AUTHORIZED_ORIGINS` and the Google OAuth client.
 - Vercel preview URLs are intentionally not part of v1 unless you explicitly register them with Google.
+- Keep the app's security headers intact in production. Edge/CDN rules must not weaken the shipped `Content-Security-Policy`, framing protections, or related browser hardening headers.
+- The app sends baseline security headers itself, including CSP, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`, and a restrictive `Permissions-Policy`.
+- Silent restore is intended only for trusted browser profiles where re-opening the dashboard should reuse an active Google session without another consent prompt.

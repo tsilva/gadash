@@ -12,6 +12,9 @@ function createStorage() {
   const store = new Map<string, string>();
 
   return {
+    entries() {
+      return [...store.entries()];
+    },
     getItem(key: string) {
       return store.get(key) ?? null;
     },
@@ -33,6 +36,14 @@ test("saveGoogleSession persists a marker that can be read back", () => {
 
   assert.equal(storage.getItem(GOOGLE_SESSION_MARKER_KEY), "1");
   assert.equal(hasSavedGoogleSession(storage), true);
+});
+
+test("saveGoogleSession stores only the marker and never an access token", () => {
+  const storage = createStorage();
+
+  saveGoogleSession(storage);
+
+  assert.deepEqual(storage.entries(), [[GOOGLE_SESSION_MARKER_KEY, "1"]]);
 });
 
 test("clearSavedGoogleSession removes the stored marker", () => {
