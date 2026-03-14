@@ -4,7 +4,6 @@ import Script from "next/script";
 import {
   startTransition,
   useCallback,
-  useDeferredValue,
   useEffect,
   useRef,
   useState,
@@ -133,7 +132,6 @@ export function Dashboard() {
   const refreshTimerRef = useRef<number | null>(null);
   const lastPromptRef = useRef<GoogleTokenRequest["prompt"] | undefined>(undefined);
   const silentRestoreAttemptedRef = useRef(false);
-  const deferredSnapshots = useDeferredValue(snapshots);
   const configError = getConfigError();
   const authState: AuthState =
     !scriptReady && !configError
@@ -146,7 +144,7 @@ export function Dashboard() {
             : "loaded"
           : "signed_out";
 
-  const summary = summarizeSnapshots(deferredSnapshots);
+  const summary = summarizeSnapshots(snapshots);
 
   const clearRefreshTimer = useCallback(() => {
     if (refreshTimerRef.current !== null) {
@@ -489,7 +487,7 @@ export function Dashboard() {
         <section className="properties">
           {properties.map((property) => {
             const snapshot =
-              deferredSnapshots.find((entry) => entry.propertyId === property.id) ??
+              snapshots.find((entry) => entry.propertyId === property.id) ??
               getEmptySnapshot(property.id, property.label);
 
             return (
