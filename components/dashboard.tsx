@@ -145,6 +145,7 @@ export function Dashboard() {
           : "signed_out";
 
   const summary = summarizeSnapshots(snapshots);
+  const showDashboardCards = Boolean(accessToken);
 
   const clearRefreshTimer = useCallback(() => {
     if (refreshTimerRef.current !== null) {
@@ -462,65 +463,71 @@ export function Dashboard() {
           </section>
         ) : null}
 
-        <section className="summary-grid">
-          <article className="summary-card">
-            <p className="summary-card__label">Online now proxy</p>
-            <strong>{formatCount(summary.totalNearNowActiveUsers)}</strong>
-            <span>Active users in the last 0-4 minutes</span>
-          </article>
-          <article className="summary-card">
-            <p className="summary-card__label">Last 30 minutes</p>
-            <strong>{formatCount(summary.totalLast30MinActiveUsers)}</strong>
-            <span>Steadier executive summary</span>
-          </article>
-          <article className="summary-card">
-            <p className="summary-card__label">Coverage</p>
-            <strong>
-              {summary.accessibleCount}/{properties.length}
-            </strong>
-            <span>
-              {summary.inaccessibleCount} inaccessible, {summary.errorCount} failed
-            </span>
-          </article>
-        </section>
-
-        <section className="properties">
-          {properties.map((property) => {
-            const snapshot =
-              snapshots.find((entry) => entry.propertyId === property.id) ??
-              getEmptySnapshot(property.id, property.label);
-
-            return (
-              <article className="property-card" key={property.id}>
-                <div className="property-card__header">
-                  <div className="property-card__title">
-                    <p className="property-card__label">Property</p>
-                    <h2>{snapshot.label}</h2>
-                  </div>
-                  <span className={`pill pill--${snapshot.status}`}>{snapshot.status.replace("_", " ")}</span>
-                </div>
-
-                <dl className="property-card__metrics">
-                  <div>
-                    <dt>0-4 min</dt>
-                    <dd>{formatCount(snapshot.nearNowActiveUsers)}</dd>
-                  </div>
-                  <div>
-                    <dt>30 min</dt>
-                    <dd>{formatCount(snapshot.last30MinActiveUsers)}</dd>
-                  </div>
-                </dl>
-
-                <div className="property-card__footer">
-                  <span>ID {snapshot.propertyId}</span>
-                  <span>{formatTimestamp(snapshot.fetchedAt)}</span>
-                </div>
-
-                {snapshot.errorMessage ? <p className="property-card__error">{snapshot.errorMessage}</p> : null}
+        {showDashboardCards ? (
+          <>
+            <section className="summary-grid">
+              <article className="summary-card">
+                <p className="summary-card__label">Online now proxy</p>
+                <strong>{formatCount(summary.totalNearNowActiveUsers)}</strong>
+                <span>Active users in the last 0-4 minutes</span>
               </article>
-            );
-          })}
-        </section>
+              <article className="summary-card">
+                <p className="summary-card__label">Last 30 minutes</p>
+                <strong>{formatCount(summary.totalLast30MinActiveUsers)}</strong>
+                <span>Steadier executive summary</span>
+              </article>
+              <article className="summary-card">
+                <p className="summary-card__label">Coverage</p>
+                <strong>
+                  {summary.accessibleCount}/{properties.length}
+                </strong>
+                <span>
+                  {summary.inaccessibleCount} inaccessible, {summary.errorCount} failed
+                </span>
+              </article>
+            </section>
+
+            <section className="properties">
+              {properties.map((property) => {
+                const snapshot =
+                  snapshots.find((entry) => entry.propertyId === property.id) ??
+                  getEmptySnapshot(property.id, property.label);
+
+                return (
+                  <article className="property-card" key={property.id}>
+                    <div className="property-card__header">
+                      <div className="property-card__title">
+                        <p className="property-card__label">Property</p>
+                        <h2>{snapshot.label}</h2>
+                      </div>
+                      <span className={`pill pill--${snapshot.status}`}>{snapshot.status.replace("_", " ")}</span>
+                    </div>
+
+                    <dl className="property-card__metrics">
+                      <div>
+                        <dt>0-4 min</dt>
+                        <dd>{formatCount(snapshot.nearNowActiveUsers)}</dd>
+                      </div>
+                      <div>
+                        <dt>30 min</dt>
+                        <dd>{formatCount(snapshot.last30MinActiveUsers)}</dd>
+                      </div>
+                    </dl>
+
+                    <div className="property-card__footer">
+                      <span>ID {snapshot.propertyId}</span>
+                      <span>{formatTimestamp(snapshot.fetchedAt)}</span>
+                    </div>
+
+                    {snapshot.errorMessage ? (
+                      <p className="property-card__error">{snapshot.errorMessage}</p>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </section>
+          </>
+        ) : null}
       </main>
     </>
   );
