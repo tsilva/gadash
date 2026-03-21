@@ -26,3 +26,57 @@ export type DashboardSummary = {
   isPartial: boolean;
 };
 
+export type GitHubRepo = {
+  id: string;
+  name: string;
+  nameWithOwner: string;
+  url: string;
+  ownerLogin: string;
+  stargazerCount: number;
+  isPrivate: boolean;
+  pushedAt: string | null;
+};
+
+export type GitHubTimeseriesPoint = {
+  date: string;
+  value: number;
+  secondaryValue?: number;
+};
+
+export type GitHubSnapshot = {
+  date: string;
+  fetchedAt: string;
+  followers: number;
+  totalStars: number;
+  repoCount: number;
+  repoNames: string[];
+};
+
+export type GitHubRepoLineGrowth = {
+  repoId: string;
+  repoName: string;
+  fetchedOn: string;
+  weeks: GitHubTimeseriesPoint[];
+  status: "ok" | "error";
+  errorMessage?: string;
+};
+
+export type GitHubHistoryStore = {
+  login: string;
+  snapshots: GitHubSnapshot[];
+  repoLineGrowth: GitHubRepoLineGrowth[];
+  commitActivity: GitHubTimeseriesPoint[];
+  updatedAt: string;
+};
+
+export type GitHubSummary = {
+  login: string;
+  repoCount: number;
+  totalStars: number;
+  followers: number;
+  fetchedAt: string | null;
+  includedRepoCount: number;
+  excludedRepoCount: number;
+  isPartial: boolean;
+  historyStartedAt: string | null;
+};

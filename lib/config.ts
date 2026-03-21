@@ -1,10 +1,21 @@
 import type { DashboardProperty } from "@/lib/types";
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ?? "";
-const AUTHORIZED_ORIGINS = (process.env.NEXT_PUBLIC_GOOGLE_AUTHORIZED_ORIGINS ?? "")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+const GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID?.trim() ?? "";
+
+export function parseAuthorizedOrigins(rawValue: string | undefined): string[] {
+  return (rawValue ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
+const GOOGLE_AUTHORIZED_ORIGINS = parseAuthorizedOrigins(
+  process.env.NEXT_PUBLIC_GOOGLE_AUTHORIZED_ORIGINS,
+);
+const GITHUB_AUTHORIZED_ORIGINS = parseAuthorizedOrigins(
+  process.env.NEXT_PUBLIC_GITHUB_AUTHORIZED_ORIGINS,
+);
 
 function isDashboardProperty(value: unknown): value is DashboardProperty {
   if (!value || typeof value !== "object") {
@@ -61,6 +72,14 @@ export function getGoogleClientId(): string {
   return GOOGLE_CLIENT_ID;
 }
 
-export function getAuthorizedOrigins(): string[] {
-  return AUTHORIZED_ORIGINS;
+export function getGitHubClientId(): string {
+  return GITHUB_CLIENT_ID;
+}
+
+export function getGoogleAuthorizedOrigins(): string[] {
+  return GOOGLE_AUTHORIZED_ORIGINS;
+}
+
+export function getGitHubAuthorizedOrigins(): string[] {
+  return GITHUB_AUTHORIZED_ORIGINS;
 }

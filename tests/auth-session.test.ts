@@ -2,12 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  GITHUB_AUTH_SESSION_KEY,
   GOOGLE_AUTH_SESSION_KEY,
   GOOGLE_SESSION_MARKER_KEY,
+  clearStoredGitHubAuth,
   clearStoredGoogleAuth,
   clearSavedGoogleSession,
   hasSavedGoogleSession,
+  loadStoredGitHubAuth,
   loadStoredGoogleAuth,
+  saveStoredGitHubAuth,
   saveGoogleSession,
   saveStoredGoogleAuth,
 } from "../lib/auth-session.ts";
@@ -110,4 +114,44 @@ test("clearStoredGoogleAuth removes the persisted token payload", () => {
   clearStoredGoogleAuth(storage);
 
   assert.equal(storage.getItem(GOOGLE_AUTH_SESSION_KEY), null);
+});
+
+test("saveStoredGitHubAuth persists a tab-scoped token payload", () => {
+  const storage = createStorage();
+
+  saveStoredGitHubAuth(storage, {
+    accessToken: "github-token",
+    scope: "read:user repo",
+  });
+
+  assert.deepEqual(JSON.parse(storage.getItem(GITHUB_AUTH_SESSION_KEY) ?? "null"), {
+    accessToken: "github-token",
+    scope: "read:user repo",
+  });
+});
+
+test("loadStoredGitHubAuth returns a valid token payload", () => {
+  const storage = createStorage();
+
+  saveStoredGitHubAuth(storage, {
+    accessToken: "github-token",
+    scope: "read:user repo",
+  });
+
+  assert.deepEqual(loadStoredGitHubAuth(storage), {
+    accessToken: "github-token",
+    scope: "read:user repo",
+  });
+});
+
+test("clearStoredGitHubAuth removes the persisted token payload", () => {
+  const storage = createStorage();
+
+  saveStoredGitHubAuth(storage, {
+    accessToken: "github-token",
+    scope: "read:user repo",
+  });
+  clearStoredGitHubAuth(storage);
+
+  assert.equal(storage.getItem(GITHUB_AUTH_SESSION_KEY), null);
 });
