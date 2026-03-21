@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseDashboardProperties } from "../lib/config.ts";
+import { parseAuthorizedOrigins, parseDashboardProperties } from "../lib/config.ts";
 
 test("parseDashboardProperties sorts by sortOrder and label", () => {
   const parsed = parseDashboardProperties(
@@ -27,4 +27,11 @@ test("parseDashboardProperties throws on invalid payloads", () => {
 
 test("parseDashboardProperties returns an empty list when unset", () => {
   assert.deepEqual(parseDashboardProperties(undefined), []);
+});
+
+test("parseAuthorizedOrigins trims and removes empty values", () => {
+  assert.deepEqual(
+    parseAuthorizedOrigins(" http://localhost:3000, , https://dash.example.com "),
+    ["http://localhost:3000", "https://dash.example.com"],
+  );
 });

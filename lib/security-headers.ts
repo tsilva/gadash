@@ -6,6 +6,7 @@ const CONNECT_SRC = [
   "https://analyticsdata.googleapis.com",
   "https://accounts.google.com",
   "https://oauth2.googleapis.com",
+  "https://api.github.com",
 ];
 const IMG_SRC = ["'self'", "data:"];
 const STYLE_SRC = ["'self'", "'unsafe-inline'"];

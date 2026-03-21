@@ -1,7 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Outfit, Roboto } from "next/font/google";
 
 import "./globals.css";
+
+const APP_CHROME_COLOR = "#09090b";
 
 const sans = Outfit({
   subsets: ["latin"],
@@ -48,6 +50,14 @@ export const metadata: Metadata = {
     description:
       "Securely visualize GA4 data with automatic property discovery. Built with Next.js, Google OAuth, and the GA4 Data API for real-time insights.",
   },
+  other: {
+    "theme-color": APP_CHROME_COLOR,
+  },
+};
+
+export const viewport: Viewport = {
+  colorScheme: "dark",
+  themeColor: APP_CHROME_COLOR,
 };
 
 export default function RootLayout({
