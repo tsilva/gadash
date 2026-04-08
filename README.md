@@ -20,6 +20,10 @@ The app keeps the live Google and GitHub access tokens only in `sessionStorage`,
    - `NEXT_PUBLIC_GITHUB_CLIENT_ID`
    - `NEXT_PUBLIC_GITHUB_AUTHORIZED_ORIGINS`
    - `GITHUB_CLIENT_SECRET`
+   - `NEXT_PUBLIC_SENTRY_DSN` to enable browser-side Sentry reporting
+   - `SENTRY_DSN` if you want a separate DSN for route handlers and other server-side errors
+   - `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, and optional `SENTRY_BASE_URL` if your production builds should upload source maps
+   - `SENTRY_SMOKE_TEST_TOKEN` if you want to use the protected `/api/sentry/smoke` route for deployment smoke tests
    - `NEXT_PUBLIC_GA_PROPERTIES_JSON` only if you want a fallback list when Admin API discovery is unavailable
 
 Optional fallback properties JSON:
@@ -41,6 +45,8 @@ pnpm dev
 ## Deploy
 
 - Host the app on Vercel.
+- Add the Sentry env vars in Vercel if you want production error ingestion and source map uploads.
+- Source map uploads require `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` in the hosted build environment.
 - Put Cloudflare in front as DNS/CDN only.
 - Add the production origin to both `NEXT_PUBLIC_GOOGLE_AUTHORIZED_ORIGINS` and the Google OAuth client.
 - Add the production origin to `NEXT_PUBLIC_GITHUB_AUTHORIZED_ORIGINS` and the GitHub OAuth App settings.
@@ -48,6 +54,11 @@ pnpm dev
 - Keep the app's security headers intact in production. Edge/CDN rules must not weaken the shipped `Content-Security-Policy`, framing protections, or related browser hardening headers.
 - The app sends baseline security headers itself, including CSP, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`, and a restrictive `Permissions-Policy`.
 - Silent restore is intended only for trusted browser profiles where re-opening the dashboard should reuse an active Google session without another consent prompt.
+- Once `SENTRY_SMOKE_TEST_TOKEN` is set, you can verify live server-side ingestion with:
+
+```bash
+curl -H "x-sentry-smoke-token: $SENTRY_SMOKE_TEST_TOKEN" https://your-domain.example/api/sentry/smoke
+```
 
 ## GitHub Metrics Notes
 
