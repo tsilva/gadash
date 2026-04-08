@@ -376,80 +376,68 @@ button {
   line-height: 1.5;
 }
 
-/* ── Property cards ── */
+/* ── Properties table ── */
 
 .properties {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   margin-top: 18px;
 }
 
-.property-card {
-  padding: 20px;
+.properties-table {
+  overflow-x: auto;
   border-radius: var(--radius-lg);
   background: var(--surface);
   border: 1px solid var(--border);
 }
 
-.property-card__header,
-.property-card__footer {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+.properties-table table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
 }
 
-.property-card__title {
-  min-width: 0;
-  flex: 1;
+.properties-table th,
+.properties-table td {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
 }
 
-.property-card__label {
+.properties-table thead th {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   font-size: 0.72rem;
   color: var(--text-tertiary);
   margin: 0;
+  font-weight: 500;
+  text-align: left;
 }
 
-.property-card__header h2 {
-  margin: 6px 0 0;
-  max-width: 100%;
-  font-size: clamp(1.1rem, 1.5vw, 1.35rem);
+.properties-table tbody tr:last-child th,
+.properties-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.properties-table__property {
+  min-width: 0;
+  width: 38%;
+}
+
+.properties-table__property-name,
+.properties-table__property-meta,
+.properties-table__property-error {
+  display: block;
+}
+
+.properties-table__property-name {
+  color: var(--text);
+  font-size: 1rem;
   font-weight: 500;
-  line-height: 1.15;
+  line-height: 1.3;
   overflow-wrap: anywhere;
 }
 
-.property-card__metrics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin: 20px 0;
-}
-
-.property-card__metrics div {
-  padding: 14px;
-  border-radius: var(--radius-md);
-  background: var(--surface-elevated);
-  border: 1px solid var(--border);
-}
-
-.property-card__metrics dt {
-  color: var(--text-tertiary);
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.property-card__metrics dd {
-  margin: 8px 0 0;
-  font-family: var(--font-mono), monospace;
-  font-size: 1.6rem;
-  font-weight: 400;
-  line-height: 1;
-}
-
-.property-card__footer {
+.properties-table__property-meta {
+  margin-top: 6px;
   color: var(--text-tertiary);
   font-family: var(--font-mono), monospace;
   font-size: 0.72rem;
@@ -457,13 +445,25 @@ button {
   text-transform: uppercase;
 }
 
-.property-card__error {
-  margin: 14px 0 0;
+.properties-table__property-error {
+  margin-top: 10px;
   color: var(--danger);
   font-size: 0.78rem;
-  line-height: 1.6;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  line-height: 1.5;
+}
+
+.properties-table__metric,
+.properties-table__timestamp {
+  font-family: var(--font-mono), monospace;
+  font-size: 1.1rem;
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.properties-table__timestamp {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
 }
 
 .charts-grid {
@@ -610,9 +610,7 @@ button {
   }
 
   .status-bar,
-  .integration__header,
-  .property-card__header,
-  .property-card__footer {
+  .integration__header {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -622,7 +620,7 @@ button {
 
 @media (prefers-reduced-motion: no-preference) {
   .summary-card,
-  .property-card,
+  .properties-table,
   .chart-card,
   .integration,
   .alert {

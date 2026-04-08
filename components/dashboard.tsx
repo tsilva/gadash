@@ -100,6 +100,10 @@ function formatDate(value: string | null): string {
   }).format(new Date(`${value}T00:00:00Z`));
 }
 
+function formatStatusLabel(status: PropertyRealtimeSnapshot["status"]): string {
+  return status.replace("_", " ");
+}
+
 function isAuthorizedOrigin(allowedOrigins: string[]): boolean {
   if (typeof window === "undefined") {
     return true;
@@ -374,6 +378,7 @@ export function Dashboard() {
           : "signed_out";
 
   const googleSummary = summarizeSnapshots(snapshots);
+  const snapshotByPropertyId = new Map(snapshots.map((entry) => [entry.propertyId, entry]));
 
   const clearGoogleRefreshTimer = useCallback(() => {
     if (googleRefreshTimerRef.current !== null) {
@@ -929,41 +934,45 @@ export function Dashboard() {
               </section>
 
               <section className="properties">
-                {properties.map((property) => {
-                  const snapshot =
-                    snapshots.find((entry) => entry.propertyId === property.id) ??
-                    getEmptySnapshot(property.id, property.label);
+                <div className="properties-table" role="region" aria-label="Google Analytics properties">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th scope="col">Property</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">0-4 min</th>
+                        <th scope="col">30 min</th>
+                        <th scope="col">Updated</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {properties.map((property) => {
+                        const snapshot =
+                          snapshotByPropertyId.get(property.id) ?? getEmptySnapshot(property.id, property.label);
 
-                  return (
-                    <article className="property-card" key={property.id}>
-                      <div className="property-card__header">
-                        <div className="property-card__title">
-                          <p className="property-card__label">Property</p>
-                          <h2>{snapshot.label}</h2>
-                        </div>
-                        <span className={`pill pill--${snapshot.status}`}>{snapshot.status.replace("_", " ")}</span>
-                      </div>
-
-                      <dl className="property-card__metrics">
-                        <div>
-                          <dt>0-4 min</dt>
-                          <dd>{formatCount(snapshot.nearNowActiveUsers)}</dd>
-                        </div>
-                        <div>
-                          <dt>30 min</dt>
-                          <dd>{formatCount(snapshot.last30MinActiveUsers)}</dd>
-                        </div>
-                      </dl>
-
-                      <div className="property-card__footer">
-                        <span>ID {snapshot.propertyId}</span>
-                        <span>{formatTimestamp(snapshot.fetchedAt)}</span>
-                      </div>
-
-                      {snapshot.errorMessage ? <p className="property-card__error">{snapshot.errorMessage}</p> : null}
-                    </article>
-                  );
-                })}
+                        return (
+                          <tr key={property.id}>
+                            <th className="properties-table__property" scope="row">
+                              <span className="properties-table__property-name">{snapshot.label}</span>
+                              <span className="properties-table__property-meta">ID {snapshot.propertyId}</span>
+                              {snapshot.errorMessage ? (
+                                <span className="properties-table__property-error">{snapshot.errorMessage}</span>
+                              ) : null}
+                            </th>
+                            <td>
+                              <span className={`pill pill--${snapshot.status}`}>
+                                {formatStatusLabel(snapshot.status)}
+                              </span>
+                            </td>
+                            <td className="properties-table__metric">{formatCount(snapshot.nearNowActiveUsers)}</td>
+                            <td className="properties-table__metric">{formatCount(snapshot.last30MinActiveUsers)}</td>
+                            <td className="properties-table__timestamp">{formatTimestamp(snapshot.fetchedAt)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </section>
             </>
           ) : null}
