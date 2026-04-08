@@ -938,8 +938,8 @@ export function Dashboard() {
                   <table>
                     <thead>
                       <tr>
-                        <th scope="col">Property</th>
                         <th scope="col">Status</th>
+                        <th scope="col">Property</th>
                         <th scope="col">0-4 min</th>
                         <th scope="col">30 min</th>
                         <th scope="col">Updated</th>
@@ -952,6 +952,11 @@ export function Dashboard() {
 
                         return (
                           <tr key={property.id}>
+                            <td className="properties-table__status">
+                              <span className={`pill pill--${snapshot.status}`}>
+                                {formatStatusLabel(snapshot.status)}
+                              </span>
+                            </td>
                             <th className="properties-table__property" scope="row">
                               <span className="properties-table__property-name">{snapshot.label}</span>
                               <span className="properties-table__property-meta">ID {snapshot.propertyId}</span>
@@ -959,11 +964,6 @@ export function Dashboard() {
                                 <span className="properties-table__property-error">{snapshot.errorMessage}</span>
                               ) : null}
                             </th>
-                            <td>
-                              <span className={`pill pill--${snapshot.status}`}>
-                                {formatStatusLabel(snapshot.status)}
-                              </span>
-                            </td>
                             <td className="properties-table__metric">{formatCount(snapshot.nearNowActiveUsers)}</td>
                             <td className="properties-table__metric">{formatCount(snapshot.last30MinActiveUsers)}</td>
                             <td className="properties-table__timestamp">{formatTimestamp(snapshot.fetchedAt)}</td>
