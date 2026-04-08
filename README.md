@@ -17,6 +17,7 @@ The app keeps the live Google and GitHub access tokens only in `sessionStorage`,
 7. Fill in:
    - `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
    - `NEXT_PUBLIC_GOOGLE_AUTHORIZED_ORIGINS`
+   - `NEXT_PUBLIC_SITE_URL` with the canonical app origin used for metadata and social tags
    - `NEXT_PUBLIC_GITHUB_CLIENT_ID`
    - `NEXT_PUBLIC_GITHUB_AUTHORIZED_ORIGINS`
    - `GITHUB_CLIENT_SECRET`
