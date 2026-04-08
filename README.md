@@ -6,7 +6,7 @@ The app keeps the live Google and GitHub access tokens only in `sessionStorage`,
 
 ## Setup
 
-1. Install dependencies with `npm install`.
+1. Install dependencies with `pnpm install`.
 2. Copy `.env.example` to `.env.local`.
 3. Create a Google OAuth client of type `Web application`.
 4. Enable both the Google Analytics Data API and the Google Analytics Admin API for that Google Cloud project.
@@ -34,8 +34,8 @@ Optional fallback properties JSON:
 ## Run
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 ## Deploy
