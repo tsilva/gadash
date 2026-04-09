@@ -1,4 +1,9 @@
-import type { PageSpeedBulkResponse, PageSpeedBulkRow, PageSpeedStrategyMetrics } from "@/lib/types";
+import type {
+  PageSpeedBulkResponse,
+  PageSpeedBulkRow,
+  PageSpeedMonitoredSite,
+  PageSpeedStrategyMetrics,
+} from "@/lib/types";
 
 function formatTimestamp(value: string | null): string {
   if (!value) {
@@ -20,7 +25,14 @@ function formatMetric(value: string | null): string {
   return value ?? "—";
 }
 
-function getSharedMetric(row: PageSpeedBulkRow, key: keyof PageSpeedStrategyMetrics): number | null {
+function buildReportUrl(url: string): string {
+  return `https://pagespeed.web.dev/?url=${encodeURIComponent(url)}`;
+}
+
+function getSharedMetric(
+  row: { mobile: PageSpeedStrategyMetrics; desktop: PageSpeedStrategyMetrics },
+  key: keyof PageSpeedStrategyMetrics,
+): number | null {
   const mobileValue = row.mobile[key];
 
   if (typeof mobileValue === "number") {
@@ -33,13 +45,44 @@ function getSharedMetric(row: PageSpeedBulkRow, key: keyof PageSpeedStrategyMetr
 }
 
 type PageSpeedSectionProps = {
+  configuredSites: PageSpeedMonitoredSite[];
   error: string | null;
   isLoading: boolean;
   report: PageSpeedBulkResponse | null;
   onRun: () => void;
 };
 
-export function PageSpeedSection({ error, isLoading, report, onRun }: PageSpeedSectionProps) {
+export function PageSpeedSection({ configuredSites, error, isLoading, report, onRun }: PageSpeedSectionProps) {
+  const visibleRows =
+    report?.rows ??
+    configuredSites.map((site) => ({
+      url: site.url,
+      label: site.label,
+      reportUrl: buildReportUrl(site.url),
+      status: null,
+      errorMessage: undefined,
+      mobile: {
+        performance: null,
+        accessibility: null,
+        bestPractices: null,
+        seo: null,
+        firstContentfulPaint: null,
+        largestContentfulPaint: null,
+        totalBlockingTime: null,
+        cumulativeLayoutShift: null,
+      },
+      desktop: {
+        performance: null,
+        accessibility: null,
+        bestPractices: null,
+        seo: null,
+        firstContentfulPaint: null,
+        largestContentfulPaint: null,
+        totalBlockingTime: null,
+        cumulativeLayoutShift: null,
+      },
+    }));
+
   return (
     <section className="integration integration--pagespeed">
       <div className="integration__header">
@@ -55,11 +98,15 @@ export function PageSpeedSection({ error, isLoading, report, onRun }: PageSpeedS
       </div>
 
       <section className="status-bar">
-        <span className={report ? "status-bar__live-dot" : ""}>{isLoading ? "Running" : report ? "Ready" : "Idle"}</span>
+        <span className={report ? "status-bar__live-dot" : ""}>
+          {isLoading ? "Running" : report ? "Ready" : configuredSites.length > 0 ? "Configured" : "Idle"}
+        </span>
         <span>
           {report
             ? `Checked ${report.totalSites} site${report.totalSites === 1 ? "" : "s"} • Updated ${formatTimestamp(report.fetchedAt)}`
-            : "Reads the monitored site list from Vercel env vars on demand"}
+            : configuredSites.length > 0
+              ? `Monitoring ${configuredSites.length} site${configuredSites.length === 1 ? "" : "s"} • Run to fetch metrics`
+              : "Reads the monitored site list from Vercel env vars on demand"}
         </span>
       </section>
 
@@ -70,7 +117,7 @@ export function PageSpeedSection({ error, isLoading, report, onRun }: PageSpeedS
         </section>
       ) : null}
 
-      {report ? (
+      {visibleRows.length > 0 ? (
         <section className="properties">
           <div className="properties-table properties-table--pagespeed" role="region" aria-label="PageSpeed bulk results">
             <table>
@@ -95,7 +142,7 @@ export function PageSpeedSection({ error, isLoading, report, onRun }: PageSpeedS
                 </tr>
               </thead>
               <tbody>
-                {report.rows.map((row) => (
+                {visibleRows.map((row) => (
                   <tr key={row.url}>
                     <th className="properties-table__property properties-table__property--site" scope="row">
                       <span className="properties-table__property-name">{row.label}</span>
@@ -128,7 +175,7 @@ export function PageSpeedSection({ error, isLoading, report, onRun }: PageSpeedS
                       {formatMetric(row.desktop.cumulativeLayoutShift)}
                     </td>
                     <td className="properties-table__status">
-                      <span className={`pill pill--${row.status}`}>{row.status}</span>
+                      {row.status ? <span className={`pill pill--${row.status}`}>{row.status}</span> : "Not run"}
                     </td>
                     <td className="properties-table__timestamp">
                       <a className="text-link" href={row.reportUrl} rel="noreferrer" target="_blank">

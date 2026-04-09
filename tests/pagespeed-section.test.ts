@@ -8,6 +8,7 @@ import { PageSpeedSection } from "../components/pagespeed-section.tsx";
 test("PageSpeedSection renders a loading button state", () => {
   const markup = renderToStaticMarkup(
     createElement(PageSpeedSection, {
+      configuredSites: [],
       error: null,
       isLoading: true,
       onRun: () => undefined,
@@ -19,9 +20,27 @@ test("PageSpeedSection renders a loading button state", () => {
   assert.match(markup, /Reads the monitored site list from Vercel env vars on demand/);
 });
 
+test("PageSpeedSection renders configured sites before the first report run", () => {
+  const markup = renderToStaticMarkup(
+    createElement(PageSpeedSection, {
+      configuredSites: [{ url: "https://alpha.example/", label: "alpha.example" }],
+      error: null,
+      isLoading: false,
+      onRun: () => undefined,
+      report: null,
+    }),
+  );
+
+  assert.match(markup, /Monitoring 1 site • Run to fetch metrics/);
+  assert.match(markup, /alpha\.example/);
+  assert.match(markup, /https:\/\/alpha\.example\//);
+  assert.match(markup, /Not run/);
+});
+
 test("PageSpeedSection renders table rows and error details", () => {
   const markup = renderToStaticMarkup(
     createElement(PageSpeedSection, {
+      configuredSites: [{ url: "https://alpha.example/", label: "alpha.example" }],
       error: "Config missing",
       isLoading: false,
       onRun: () => undefined,
