@@ -41,6 +41,11 @@ button {
   padding: 40px 0 56px;
 }
 
+.shell--auth {
+  width: min(760px, calc(100vw - 32px));
+  padding-top: 64px;
+}
+
 /* ── Hero (compact header) ── */
 
 .hero {
@@ -48,6 +53,10 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
+}
+
+.hero--auth {
+  justify-content: flex-start;
 }
 
 .hero h1 {
@@ -92,6 +101,13 @@ button {
     var(--surface);
 }
 
+.integration--auth {
+  background:
+    radial-gradient(circle at top right, rgba(94, 234, 212, 0.08), transparent 30%),
+    radial-gradient(circle at bottom left, rgba(255, 255, 255, 0.03), transparent 28%),
+    var(--surface);
+}
+
 .integration__header {
   display: flex;
   align-items: flex-start;
@@ -118,6 +134,25 @@ button {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.auth-gate__copy {
+  margin: 18px 0 0;
+  max-width: 58ch;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.auth-gate__button-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.auth-gate__google-button {
+  min-height: 40px;
 }
 
 /* ── Buttons ── */
@@ -699,6 +734,10 @@ button {
   .integration__header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .shell--auth {
+    padding-top: 36px;
   }
 }
 

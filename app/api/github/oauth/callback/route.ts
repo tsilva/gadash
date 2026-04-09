@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { readDashboardSessionFromRequest } from "@/lib/server-auth";
+
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
 const STATE_COOKIE_NAME = "gadash.github-oauth-state";
 
@@ -55,6 +57,20 @@ export async function GET(request: Request) {
     "Content-Type": "text/html; charset=utf-8",
     "Cache-Control": "no-store",
   };
+
+  if (!readDashboardSessionFromRequest(request)) {
+    return new NextResponse(
+      renderPopupResult(
+        {
+          type: "gadash:github-auth",
+          success: false,
+          error: "Dashboard sign-in expired. Sign in again.",
+        },
+        origin,
+      ),
+      { headers },
+    );
+  }
 
   if (!code || !state || !cookieState || cookieState !== state) {
     return new NextResponse(

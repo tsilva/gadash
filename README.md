@@ -1,6 +1,6 @@
 # GADash
 
-Next.js dashboard for GA4 Realtime data, GitHub account trends, and on-demand bulk PageSpeed checks. Google Analytics data stays client-side; GitHub metrics use a server-side OAuth token exchange route; PageSpeed bulk runs use a server-side API route so the PSI API key stays private.
+Next.js dashboard for GA4 Realtime data, GitHub account trends, and on-demand bulk PageSpeed checks. The whole dashboard is gated behind a server-verified Google identity session; Google Analytics data still stays client-side after access is granted; GitHub metrics use a server-side OAuth token exchange route; PageSpeed bulk runs use a server-side API route so the PSI API key stays private.
 
 The app keeps the live Google and GitHub access tokens only in `sessionStorage`, so reloading the same tab stays signed in until the token expires or the tab is closed. Google also keeps a local session marker for best-effort silent restore on trusted browsers. On shared devices, use the in-app `Sign out` button before closing the tab.
 
@@ -18,6 +18,8 @@ The app keeps the live Google and GitHub access tokens only in `sessionStorage`,
    - `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
    - `NEXT_PUBLIC_GOOGLE_AUTHORIZED_ORIGINS`
    - `NEXT_PUBLIC_SITE_URL` with the canonical app origin used for metadata and social tags
+   - `AUTH_SESSION_SECRET` with a long random string used to sign the private dashboard cookie
+   - `ALLOWED_GOOGLE_EMAILS` with the comma-separated Google email allowlist permitted to open the dashboard
    - `NEXT_PUBLIC_GITHUB_CLIENT_ID`
    - `NEXT_PUBLIC_GITHUB_AUTHORIZED_ORIGINS`
    - `GITHUB_CLIENT_SECRET`
@@ -56,6 +58,7 @@ pnpm dev
 ## Deploy
 
 - Host the app on Vercel.
+- Add `AUTH_SESSION_SECRET` and `ALLOWED_GOOGLE_EMAILS` in Vercel. Without them, the private dashboard gate cannot open.
 - Add `PAGESPEED_API_KEY` and `PAGESPEED_MONITORED_URLS` in Vercel if you want the manual bulk PageSpeed section to work.
 - Add the Sentry env vars in Vercel if you want production error ingestion and source map uploads.
 - Source map uploads require `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` in the hosted build environment.
@@ -66,6 +69,7 @@ pnpm dev
 - Keep the app's security headers intact in production. Edge/CDN rules must not weaken the shipped `Content-Security-Policy`, framing protections, or related browser hardening headers.
 - The app sends baseline security headers itself, including CSP, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`, and a restrictive `Permissions-Policy`.
 - Silent restore is intended only for trusted browser profiles where re-opening the dashboard should reuse an active Google session without another consent prompt.
+- Opening the app now requires a Google identity sign-in first. The Google Analytics section still requests `analytics.readonly` separately after the dashboard is unlocked.
 - Once `SENTRY_SMOKE_TEST_TOKEN` is set, you can verify live server-side ingestion with:
 
 ```bash
@@ -75,6 +79,7 @@ curl -H "x-sentry-smoke-token: $SENTRY_SMOKE_TEST_TOKEN" https://your-domain.exa
 ## PageSpeed Notes
 
 - The PageSpeed section is manual-only in v1. Click `Run PageSpeed bulk report` in the dashboard to read the configured site list from env and fetch fresh PSI results.
+- Unauthenticated visitors cannot see the configured monitored URLs and cannot call the bulk PageSpeed route.
 - After the first run, each configured site shows its last checked timestamp and has a `Recheck` action that refreshes only that row.
 - Results are held in memory for the current page session only. There is no history, persistence, CSV export, or scheduled run yet.
 - Each row links to the external `pagespeed.web.dev` report for the audited site.
@@ -82,6 +87,7 @@ curl -H "x-sentry-smoke-token: $SENTRY_SMOKE_TEST_TOKEN" https://your-domain.exa
 ## GitHub Metrics Notes
 
 - GitHub sign-in uses a Vercel/Next route handler for the OAuth code exchange because GitHub does not expose a browser-safe token exchange endpoint.
+- GitHub OAuth routes are also guarded by the private dashboard session, so the GitHub sign-in popup only works after the Google identity gate succeeds.
 - GitHub trend history is stored in browser-local IndexedDB and is not synced across devices.
 - Stars and followers charts are prospective only. They begin from the first successful local snapshot in that browser profile.
 - Net line growth is based on GitHub repository statistics (`additions + deletions`) and is not an exact total lines-of-code chart.

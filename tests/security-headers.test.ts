@@ -8,6 +8,7 @@ test("buildContentSecurityPolicy includes required Google origins and framing pr
   const policy = buildContentSecurityPolicy(false);
 
   assert.match(policy, /script-src 'self' 'unsafe-inline' https:\/\/accounts\.google\.com/);
+  assert.match(policy, /frame-src 'self' https:\/\/accounts\.google\.com/);
   assert.match(
     policy,
     /connect-src 'self' https:\/\/analyticsadmin\.googleapis\.com https:\/\/analyticsdata\.googleapis\.com https:\/\/accounts\.google\.com https:\/\/oauth2\.googleapis\.com https:\/\/api\.github\.com/,
