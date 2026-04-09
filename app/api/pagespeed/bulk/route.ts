@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getConfiguredPageSpeedSites, getPageSpeedApiKey } from "@/lib/pagespeed-config";
 import { fetchPageSpeedBulkReport } from "@/lib/pagespeed";
+import { readDashboardSessionFromRequest } from "@/lib/server-auth";
 
 type PageSpeedRequestBody = {
   url?: unknown;
@@ -43,6 +44,10 @@ async function readRequestedUrl(request: Request): Promise<string | null> {
 }
 
 export async function POST(request: Request) {
+  if (!readDashboardSessionFromRequest(request)) {
+    return jsonResponse({ error: "Dashboard sign-in required." }, 401);
+  }
+
   const apiKey = getPageSpeedApiKey();
 
   if (apiKey.length === 0) {

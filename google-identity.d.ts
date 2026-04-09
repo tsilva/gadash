@@ -26,9 +26,35 @@ declare global {
     requestAccessToken: (request?: GoogleTokenRequest) => void;
   };
 
+  type GoogleIdCredentialResponse = {
+    credential: string;
+    select_by?: string;
+  };
+
+  type GoogleIdConfiguration = {
+    client_id: string;
+    callback: (response: GoogleIdCredentialResponse) => void;
+    auto_select?: boolean;
+    cancel_on_tap_outside?: boolean;
+    context?: "signin" | "signup" | "use";
+  };
+
+  type GoogleIdButtonConfiguration = {
+    theme?: "outline" | "filled_blue" | "filled_black";
+    size?: "large" | "medium" | "small";
+    shape?: "rectangular" | "pill" | "circle" | "square";
+    text?: "signin_with" | "signup_with" | "continue_with" | "signin";
+    logo_alignment?: "left" | "center";
+    width?: number;
+  };
+
   interface Window {
     google?: {
       accounts: {
+        id: {
+          initialize: (config: GoogleIdConfiguration) => void;
+          renderButton: (parent: HTMLElement, options: GoogleIdButtonConfiguration) => void;
+        };
         oauth2: {
           initTokenClient: (config: GoogleTokenClientConfig) => GoogleTokenClient;
           revoke: (token: string, done?: () => void) => void;

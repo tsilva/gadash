@@ -1,5 +1,6 @@
 const DEFAULT_SRC = ["'self'"];
 const SCRIPT_SRC = ["'self'", "'unsafe-inline'", "https://accounts.google.com"];
+const FRAME_SRC = ["'self'", "https://accounts.google.com"];
 const CONNECT_SRC = [
   "'self'",
   "https://analyticsadmin.googleapis.com",
@@ -21,6 +22,7 @@ export function buildContentSecurityPolicy(isProduction: boolean): string {
   const directives = [
     `default-src ${DEFAULT_SRC.join(" ")}`,
     `script-src ${SCRIPT_SRC.join(" ")}`,
+    `frame-src ${FRAME_SRC.join(" ")}`,
     `connect-src ${CONNECT_SRC.join(" ")}`,
     `img-src ${IMG_SRC.join(" ")}`,
     `style-src ${STYLE_SRC.join(" ")}`,
