@@ -41,6 +41,7 @@ import {
   fetchGitHubRepos,
   fetchGitHubViewer,
 } from "@/lib/github";
+import { mergePageSpeedReportRow } from "@/lib/pagespeed";
 import type {
   DashboardProperty,
   GitHubHistoryStore,
@@ -360,6 +361,7 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
   const [pageSpeedReport, setPageSpeedReport] = useState<PageSpeedBulkResponse | null>(null);
   const [pageSpeedLoading, setPageSpeedLoading] = useState(false);
   const [pageSpeedError, setPageSpeedError] = useState<string | null>(null);
+  const [pageSpeedRecheckingUrl, setPageSpeedRecheckingUrl] = useState<string | null>(null);
 
   const tokenClientRef = useRef<GoogleTokenClient | null>(null);
   const googleAccessTokenRef = useRef<string | null>(null);
@@ -816,16 +818,23 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
     await resetGitHubSignedOutState(null, true);
   }
 
-  async function runPageSpeedReport() {
+  async function fetchPageSpeedReport(url?: string) {
+    if (pageSpeedLoading) {
+      return;
+    }
+
     setPageSpeedLoading(true);
     setPageSpeedError(null);
+    setPageSpeedRecheckingUrl(url ?? null);
 
     try {
       const response = await fetch("/api/pagespeed/bulk", {
         method: "POST",
         headers: {
           Accept: "application/json",
+          ...(url ? { "Content-Type": "application/json" } : {}),
         },
+        ...(url ? { body: JSON.stringify({ url }) } : {}),
         cache: "no-store",
       });
       const payload = (await response.json().catch(() => null)) as
@@ -842,13 +851,37 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
       }
 
       startTransition(() => {
-        setPageSpeedReport(payload as PageSpeedBulkResponse);
+        const nextReport = payload as PageSpeedBulkResponse;
+
+        if (url) {
+          const refreshedRow = nextReport.rows[0];
+
+          if (!refreshedRow) {
+            return;
+          }
+
+          setPageSpeedReport((currentReport) =>
+            mergePageSpeedReportRow(currentReport, refreshedRow, configuredPageSpeedSites, nextReport.fetchedAt),
+          );
+          return;
+        }
+
+        setPageSpeedReport(nextReport);
       });
     } catch (error) {
       setPageSpeedError(error instanceof Error ? error.message : "PageSpeed bulk report failed.");
     } finally {
+      setPageSpeedRecheckingUrl(null);
       setPageSpeedLoading(false);
     }
+  }
+
+  async function runPageSpeedReport() {
+    await fetchPageSpeedReport();
+  }
+
+  async function recheckPageSpeedSite(url: string) {
+    await fetchPageSpeedReport(url);
   }
 
   function startGitHubSignIn() {
@@ -1027,7 +1060,9 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
           configuredSites={configuredPageSpeedSites}
           error={pageSpeedError}
           isLoading={pageSpeedLoading}
+          recheckingUrl={pageSpeedRecheckingUrl}
           onRun={() => void runPageSpeedReport()}
+          onRecheck={(url) => void recheckPageSpeedSite(url)}
           report={pageSpeedReport}
         />
 

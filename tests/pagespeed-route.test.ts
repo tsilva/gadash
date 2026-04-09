@@ -105,7 +105,7 @@ test("POST returns partial success rows and report links", async () => {
         const response = await POST(new Request("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
         const payload = (await response.json()) as {
           totalSites: number;
-          rows: Array<{ status: string; reportUrl: string; errorMessage?: string }>;
+          rows: Array<{ status: string; reportUrl: string; checkedAt: string | null; errorMessage?: string }>;
         };
 
         assert.equal(response.status, 200);
@@ -114,8 +114,9 @@ test("POST returns partial success rows and report links", async () => {
         assert.equal(payload.rows[1]?.status, "error");
         assert.equal(
           payload.rows[0]?.reportUrl,
-          "https://pagespeed.web.dev/?url=https%3A%2F%2Falpha.example%2F",
+          "https://pagespeed.web.dev/analysis?url=https%3A%2F%2Falpha.example%2F&form_factor=mobile",
         );
+        assert.equal(typeof payload.rows[0]?.checkedAt, "string");
         assert.match(payload.rows[1]?.errorMessage ?? "", /Desktop: desktop failed/);
       },
     );
@@ -169,4 +170,85 @@ test("POST forwards the request origin as the PageSpeed referer", async () => {
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+test("POST can refresh a single configured site", async () => {
+  const originalFetch = global.fetch;
+  const seenUrls: string[] = [];
+
+  try {
+    global.fetch = (async (input: string | URL | Request) => {
+      const requestUrl = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+      seenUrls.push(requestUrl.searchParams.get("url") ?? "");
+
+      return new Response(
+        JSON.stringify({
+          lighthouseResult: {
+            categories: {
+              performance: { score: 0.88 },
+              accessibility: { score: 0.9 },
+              "best-practices": { score: 0.92 },
+              seo: { score: 0.94 },
+            },
+            audits: {
+              "first-contentful-paint": { displayValue: "1.0 s" },
+              "largest-contentful-paint": { displayValue: "1.8 s" },
+              "total-blocking-time": { displayValue: "40 ms" },
+              "cumulative-layout-shift": { displayValue: "0.02" },
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    await withEnv(
+      {
+        PAGESPEED_API_KEY: "test-key",
+        PAGESPEED_MONITORED_URLS: "https://alpha.example\nhttps://beta.example",
+      },
+      async () => {
+        const response = await POST(
+          new Request("https://gadash.tsilva.eu/api/pagespeed/bulk", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: "https://beta.example/" }),
+          }),
+        );
+        const payload = (await response.json()) as {
+          totalSites: number;
+          rows: Array<{ url: string }>;
+        };
+
+        assert.equal(response.status, 200);
+        assert.equal(payload.totalSites, 1);
+        assert.deepEqual(payload.rows.map((row) => row.url), ["https://beta.example/"]);
+        assert.deepEqual(seenUrls, ["https://beta.example/", "https://beta.example/"]);
+      },
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("POST rejects row refreshes for unconfigured sites", async () => {
+  await withEnv(
+    {
+      PAGESPEED_API_KEY: "test-key",
+      PAGESPEED_MONITORED_URLS: "https://alpha.example",
+    },
+    async () => {
+      const response = await POST(
+        new Request("https://gadash.tsilva.eu/api/pagespeed/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: "https://beta.example/" }),
+        }),
+      );
+      const payload = (await response.json()) as { error: string };
+
+      assert.equal(response.status, 400);
+      assert.equal(payload.error, "Requested PageSpeed site is not in PAGESPEED_MONITORED_URLS.");
+    },
+  );
 });

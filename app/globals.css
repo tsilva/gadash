@@ -443,12 +443,26 @@ button {
   display: block;
 }
 
+.properties-table__property-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .properties-table__property-name {
   color: var(--text);
   font-size: 0.95rem;
   font-weight: 500;
   line-height: 1.2;
   overflow-wrap: anywhere;
+}
+
+.properties-table__property-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .properties-table__property-meta {
@@ -486,8 +500,33 @@ button {
   font-size: 0.8rem;
 }
 
+.properties-table__metric--success {
+  color: var(--success);
+}
+
+.properties-table__metric--warning {
+  color: var(--warning);
+}
+
+.properties-table__metric--danger {
+  color: var(--danger);
+}
+
 .text-link {
   color: var(--accent);
+  text-decoration: none;
+}
+
+.text-link--button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.text-link--button:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
   text-decoration: none;
 }
 
