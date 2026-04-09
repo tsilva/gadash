@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
+import { readDashboardSessionFromRequest } from "@/lib/server-auth";
+
 const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 const STATE_COOKIE_NAME = "gadash.github-oauth-state";
 
@@ -14,6 +16,10 @@ function getGitHubClientId(): string {
 }
 
 export async function GET(request: Request) {
+  if (!readDashboardSessionFromRequest(request)) {
+    return NextResponse.json({ error: "Dashboard sign-in required." }, { status: 401 });
+  }
+
   const clientId = getGitHubClientId();
 
   if (clientId.length === 0) {

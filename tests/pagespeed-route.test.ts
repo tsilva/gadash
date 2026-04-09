@@ -2,6 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { POST } from "../app/api/pagespeed/bulk/route.ts";
+import { createDashboardSessionValue } from "../lib/server-auth.ts";
+
+function createAuthedRequest(url: string, init: RequestInit = {}) {
+  const headers = new Headers(init.headers);
+
+  headers.set("cookie", `gadash.auth=${createDashboardSessionValue("eng.tiago.silva@gmail.com", "test-secret")}`);
+
+  return new Request(url, {
+    ...init,
+    headers,
+  });
+}
 
 function withEnv(overrides: Record<string, string | undefined>, run: () => Promise<void>) {
   const previous = new Map<string, string | undefined>();
@@ -32,9 +44,10 @@ test("POST returns a config error when the API key is missing", async () => {
     {
       PAGESPEED_API_KEY: undefined,
       PAGESPEED_MONITORED_URLS: "https://alpha.example",
+      AUTH_SESSION_SECRET: "test-secret",
     },
     async () => {
-      const response = await POST(new Request("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
+      const response = await POST(createAuthedRequest("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
       const payload = (await response.json()) as { error: string };
 
       assert.equal(response.status, 500);
@@ -48,9 +61,10 @@ test("POST returns a config error when the monitored URLs are invalid", async ()
     {
       PAGESPEED_API_KEY: "test-key",
       PAGESPEED_MONITORED_URLS: "http://alpha.example",
+      AUTH_SESSION_SECRET: "test-secret",
     },
     async () => {
-      const response = await POST(new Request("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
+      const response = await POST(createAuthedRequest("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
       const payload = (await response.json()) as { error: string };
 
       assert.equal(response.status, 500);
@@ -100,9 +114,10 @@ test("POST returns partial success rows and report links", async () => {
       {
         PAGESPEED_API_KEY: "test-key",
         PAGESPEED_MONITORED_URLS: "https://alpha.example\nhttps://beta.example",
+        AUTH_SESSION_SECRET: "test-secret",
       },
       async () => {
-        const response = await POST(new Request("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
+        const response = await POST(createAuthedRequest("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
         const payload = (await response.json()) as {
           totalSites: number;
           rows: Array<{ status: string; reportUrl: string; checkedAt: string | null; errorMessage?: string }>;
@@ -159,9 +174,10 @@ test("POST forwards the request origin as the PageSpeed referer", async () => {
       {
         PAGESPEED_API_KEY: "test-key",
         PAGESPEED_MONITORED_URLS: "https://alpha.example",
+        AUTH_SESSION_SECRET: "test-secret",
       },
       async () => {
-        const response = await POST(new Request("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
+        const response = await POST(createAuthedRequest("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
 
         assert.equal(response.status, 200);
         assert.deepEqual(seenReferers, ["https://gadash.tsilva.eu/", "https://gadash.tsilva.eu/"]);
@@ -206,10 +222,11 @@ test("POST can refresh a single configured site", async () => {
       {
         PAGESPEED_API_KEY: "test-key",
         PAGESPEED_MONITORED_URLS: "https://alpha.example\nhttps://beta.example",
+        AUTH_SESSION_SECRET: "test-secret",
       },
       async () => {
         const response = await POST(
-          new Request("https://gadash.tsilva.eu/api/pagespeed/bulk", {
+          createAuthedRequest("https://gadash.tsilva.eu/api/pagespeed/bulk", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ url: "https://beta.example/" }),
@@ -236,10 +253,11 @@ test("POST rejects row refreshes for unconfigured sites", async () => {
     {
       PAGESPEED_API_KEY: "test-key",
       PAGESPEED_MONITORED_URLS: "https://alpha.example",
+      AUTH_SESSION_SECRET: "test-secret",
     },
     async () => {
       const response = await POST(
-        new Request("https://gadash.tsilva.eu/api/pagespeed/bulk", {
+        createAuthedRequest("https://gadash.tsilva.eu/api/pagespeed/bulk", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: "https://beta.example/" }),
@@ -249,6 +267,23 @@ test("POST rejects row refreshes for unconfigured sites", async () => {
 
       assert.equal(response.status, 400);
       assert.equal(payload.error, "Requested PageSpeed site is not in PAGESPEED_MONITORED_URLS.");
+    },
+  );
+});
+
+test("POST rejects unauthenticated PageSpeed requests", async () => {
+  await withEnv(
+    {
+      PAGESPEED_API_KEY: "test-key",
+      PAGESPEED_MONITORED_URLS: "https://alpha.example",
+      AUTH_SESSION_SECRET: "test-secret",
+    },
+    async () => {
+      const response = await POST(new Request("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
+      const payload = (await response.json()) as { error: string };
+
+      assert.equal(response.status, 401);
+      assert.equal(payload.error, "Dashboard sign-in required.");
     },
   );
 });

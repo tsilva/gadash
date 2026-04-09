@@ -3,6 +3,7 @@
 import Script from "next/script";
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 
+import { GoogleMark } from "@/components/google-mark";
 import { PageSpeedSection } from "@/components/pagespeed-section";
 import { discoverDashboardProperties } from "@/lib/admin";
 import {
@@ -262,34 +263,6 @@ function TimeSeriesChart({
         <span>{formatDate(points[points.length - 1]?.date ?? null)}</span>
       </div>
     </article>
-  );
-}
-
-function GoogleMark() {
-  return (
-    <svg
-      aria-hidden="true"
-      className="google-signin__icon"
-      viewBox="0 0 18 18"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M17.64 9.2c0-.64-.06-1.26-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.56 2.68-3.86 2.68-6.62Z"
-        fill="#4285F4"
-      />
-      <path
-        d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.85.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.34A9 9 0 0 0 9 18Z"
-        fill="#34A853"
-      />
-      <path
-        d="M3.97 10.72A5.41 5.41 0 0 1 3.69 9c0-.6.1-1.18.28-1.72V4.94H.96A9 9 0 0 0 0 9c0 1.45.35 2.82.96 4.06l3.01-2.34Z"
-        fill="#FBBC05"
-      />
-      <path
-        d="M9 3.58c1.32 0 2.5.45 3.44 1.33l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .96 4.94l3.01 2.34c.7-2.12 2.69-3.7 5.03-3.7Z"
-        fill="#EA4335"
-      />
-    </svg>
   );
 }
 
@@ -802,7 +775,7 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
     return () => clearGoogleRefreshTimer();
   }, [clearGoogleRefreshTimer]);
 
-  function signOutGoogle() {
+  async function signOutGoogle() {
     clearGoogleRefreshTimer();
 
     if (googleAccessToken && window.google?.accounts.oauth2) {
@@ -811,7 +784,26 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
 
     clearStoredGoogleAuth(window.sessionStorage);
     clearSavedGoogleSession(window.localStorage);
+    await resetGitHubSignedOutState(null, false);
+    setPageSpeedReport(null);
+    setPageSpeedError(null);
+    setPageSpeedRecheckingUrl(null);
+    setPageSpeedLoading(false);
+
+    try {
+      await fetch("/api/auth/sign-out", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
+    } catch {
+      // The next navigation re-checks the server session.
+    }
+
     resetGoogleSignedOutState(null);
+    window.location.reload();
   }
 
   async function signOutGitHub() {
@@ -940,7 +932,7 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
                   <button className="button" onClick={() => void refreshGoogleDataRef.current()} type="button">
                     Refresh
                   </button>
-                  <button className="button button--ghost" onClick={signOutGoogle} type="button">
+                  <button className="button button--ghost" onClick={() => void signOutGoogle()} type="button">
                     Sign out
                   </button>
                 </>
