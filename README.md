@@ -1,6 +1,6 @@
 # GADash
 
-Next.js dashboard for GA4 Realtime data plus GitHub account trends. Google Analytics data stays client-side; GitHub metrics use a server-side OAuth token exchange route and then load account data in the browser.
+Next.js dashboard for GA4 Realtime data, GitHub account trends, and on-demand bulk PageSpeed checks. Google Analytics data stays client-side; GitHub metrics use a server-side OAuth token exchange route; PageSpeed bulk runs use a server-side API route so the PSI API key stays private.
 
 The app keeps the live Google and GitHub access tokens only in `sessionStorage`, so reloading the same tab stays signed in until the token expires or the tab is closed. Google also keeps a local session marker for best-effort silent restore on trusted browsers. On shared devices, use the in-app `Sign out` button before closing the tab.
 
@@ -26,6 +26,8 @@ The app keeps the live Google and GitHub access tokens only in `sessionStorage`,
    - `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, and optional `SENTRY_BASE_URL` if your production builds should upload source maps
    - `SENTRY_SMOKE_TEST_TOKEN` if you want to use the protected `/api/sentry/smoke` route for deployment smoke tests
    - `NEXT_PUBLIC_GA_PROPERTIES_JSON` only if you want a fallback list when Admin API discovery is unavailable
+   - `PAGESPEED_API_KEY` for the server-side PageSpeed Insights API route
+   - `PAGESPEED_MONITORED_URLS` as a comma-separated or newline-separated list of absolute `https://` site URLs to check in bulk
 
 Optional fallback properties JSON:
 
@@ -34,6 +36,14 @@ Optional fallback properties JSON:
   { "id": "123456789", "label": "Main Site", "sortOrder": 1 },
   { "id": "987654321", "label": "Docs", "sortOrder": 2 }
 ]
+```
+
+Example `PAGESPEED_MONITORED_URLS` value:
+
+```text
+https://example.com,
+https://docs.example.com/guides
+https://status.example.com/
 ```
 
 ## Run
@@ -46,6 +56,7 @@ pnpm dev
 ## Deploy
 
 - Host the app on Vercel.
+- Add `PAGESPEED_API_KEY` and `PAGESPEED_MONITORED_URLS` in Vercel if you want the manual bulk PageSpeed section to work.
 - Add the Sentry env vars in Vercel if you want production error ingestion and source map uploads.
 - Source map uploads require `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` in the hosted build environment.
 - Put Cloudflare in front as DNS/CDN only.
@@ -60,6 +71,12 @@ pnpm dev
 ```bash
 curl -H "x-sentry-smoke-token: $SENTRY_SMOKE_TEST_TOKEN" https://your-domain.example/api/sentry/smoke
 ```
+
+## PageSpeed Notes
+
+- The PageSpeed section is manual-only in v1. Click `Run PageSpeed bulk report` in the dashboard to read the configured site list from env and fetch fresh PSI results.
+- Results are held in memory for the current page session only. There is no history, persistence, CSV export, or scheduled run yet.
+- Each row links to the external `pagespeed.web.dev` report for the audited site.
 
 ## GitHub Metrics Notes
 
