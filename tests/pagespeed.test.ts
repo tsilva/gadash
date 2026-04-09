@@ -71,3 +71,22 @@ test("fetchPageSpeedBulkReport preserves partial site failures", async () => {
   assert.equal(report.rows[0]?.mobile.performance, 91);
   assert.equal(report.rows[0]?.desktop.performance, null);
 });
+
+test("fetchPageSpeedBulkReport forwards an optional referer header", async () => {
+  const seenReferers: string[] = [];
+
+  await fetchPageSpeedBulkReport(
+    [{ url: "https://alpha.example/", label: "alpha.example" }],
+    "test-key",
+    async (_input, init) => {
+      const headers = new Headers(init?.headers);
+      seenReferers.push(headers.get("Referer") ?? "");
+
+      return buildSuccessResponse("mobile");
+    },
+    2,
+    "https://gadash.tsilva.eu/",
+  );
+
+  assert.deepEqual(seenReferers, ["https://gadash.tsilva.eu/", "https://gadash.tsilva.eu/"]);
+});

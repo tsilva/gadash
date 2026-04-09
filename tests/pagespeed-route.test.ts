@@ -34,7 +34,7 @@ test("POST returns a config error when the API key is missing", async () => {
       PAGESPEED_MONITORED_URLS: "https://alpha.example",
     },
     async () => {
-      const response = await POST();
+      const response = await POST(new Request("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
       const payload = (await response.json()) as { error: string };
 
       assert.equal(response.status, 500);
@@ -50,7 +50,7 @@ test("POST returns a config error when the monitored URLs are invalid", async ()
       PAGESPEED_MONITORED_URLS: "http://alpha.example",
     },
     async () => {
-      const response = await POST();
+      const response = await POST(new Request("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
       const payload = (await response.json()) as { error: string };
 
       assert.equal(response.status, 500);
@@ -102,7 +102,7 @@ test("POST returns partial success rows and report links", async () => {
         PAGESPEED_MONITORED_URLS: "https://alpha.example\nhttps://beta.example",
       },
       async () => {
-        const response = await POST();
+        const response = await POST(new Request("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
         const payload = (await response.json()) as {
           totalSites: number;
           rows: Array<{ status: string; reportUrl: string; errorMessage?: string }>;
@@ -117,6 +117,53 @@ test("POST returns partial success rows and report links", async () => {
           "https://pagespeed.web.dev/?url=https%3A%2F%2Falpha.example%2F",
         );
         assert.match(payload.rows[1]?.errorMessage ?? "", /Desktop: desktop failed/);
+      },
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("POST forwards the request origin as the PageSpeed referer", async () => {
+  const originalFetch = global.fetch;
+  const seenReferers: string[] = [];
+
+  try {
+    global.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+      seenReferers.push(headers.get("Referer") ?? "");
+
+      return new Response(
+        JSON.stringify({
+          lighthouseResult: {
+            categories: {
+              performance: { score: 0.88 },
+              accessibility: { score: 0.9 },
+              "best-practices": { score: 0.92 },
+              seo: { score: 0.94 },
+            },
+            audits: {
+              "first-contentful-paint": { displayValue: "1.0 s" },
+              "largest-contentful-paint": { displayValue: "1.8 s" },
+              "total-blocking-time": { displayValue: "40 ms" },
+              "cumulative-layout-shift": { displayValue: "0.02" },
+            },
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    await withEnv(
+      {
+        PAGESPEED_API_KEY: "test-key",
+        PAGESPEED_MONITORED_URLS: "https://alpha.example",
+      },
+      async () => {
+        const response = await POST(new Request("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
+
+        assert.equal(response.status, 200);
+        assert.deepEqual(seenReferers, ["https://gadash.tsilva.eu/", "https://gadash.tsilva.eu/"]);
       },
     );
   } finally {
