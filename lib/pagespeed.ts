@@ -84,6 +84,7 @@ async function fetchStrategyMetrics(
   strategy: "mobile" | "desktop",
   apiKey: string,
   fetchImpl: FetchLike,
+  referer?: string,
 ): Promise<{ metrics: PageSpeedStrategyMetrics; errorMessage: string | null }> {
   const url = new URL(PAGESPEED_ENDPOINT);
   url.searchParams.set("url", siteUrl);
@@ -97,6 +98,7 @@ async function fetchStrategyMetrics(
   const response = await fetchImpl(url, {
     headers: {
       Accept: "application/json",
+      ...(referer ? { Referer: referer } : {}),
     },
     cache: "no-store",
   });
@@ -146,9 +148,10 @@ export async function fetchPageSpeedRow(
   site: PageSpeedMonitoredSite,
   apiKey: string,
   fetchImpl: FetchLike = fetch,
+  referer?: string,
 ): Promise<PageSpeedBulkRow> {
-  const mobile = await fetchStrategyMetrics(site.url, "mobile", apiKey, fetchImpl);
-  const desktop = await fetchStrategyMetrics(site.url, "desktop", apiKey, fetchImpl);
+  const mobile = await fetchStrategyMetrics(site.url, "mobile", apiKey, fetchImpl, referer);
+  const desktop = await fetchStrategyMetrics(site.url, "desktop", apiKey, fetchImpl, referer);
   const errorMessages = [
     mobile.errorMessage ? `Mobile: ${mobile.errorMessage}` : null,
     desktop.errorMessage ? `Desktop: ${desktop.errorMessage}` : null,
@@ -170,9 +173,10 @@ export async function fetchPageSpeedBulkReport(
   apiKey: string,
   fetchImpl: FetchLike = fetch,
   concurrency = 2,
+  referer?: string,
 ): Promise<PageSpeedBulkResponse> {
   const rows = await mapWithConcurrency(sites, concurrency, (site) =>
-    fetchPageSpeedRow(site, apiKey, fetchImpl),
+    fetchPageSpeedRow(site, apiKey, fetchImpl, referer),
   );
 
   return {

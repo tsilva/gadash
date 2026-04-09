@@ -43,10 +43,11 @@ import {
 } from "@/lib/github";
 import type {
   DashboardProperty,
-  PageSpeedBulkResponse,
   GitHubHistoryStore,
   GitHubSummary,
   GitHubTimeseriesPoint,
+  PageSpeedBulkResponse,
+  PageSpeedMonitoredSite,
   PropertyRealtimeSnapshot,
 } from "@/lib/types";
 
@@ -328,7 +329,11 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
-export function Dashboard() {
+type DashboardProps = {
+  configuredPageSpeedSites?: PageSpeedMonitoredSite[];
+};
+
+export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
   const [googlePhase, setGooglePhase] = useState<"signed_out" | "authorizing" | "loading" | "loaded">(
     "signed_out",
   );
@@ -1019,6 +1024,7 @@ export function Dashboard() {
         </section>
 
         <PageSpeedSection
+          configuredSites={configuredPageSpeedSites}
           error={pageSpeedError}
           isLoading={pageSpeedLoading}
           onRun={() => void runPageSpeedReport()}

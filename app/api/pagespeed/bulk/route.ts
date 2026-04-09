@@ -12,7 +12,7 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   const apiKey = getPageSpeedApiKey();
 
   if (apiKey.length === 0) {
@@ -21,7 +21,8 @@ export async function POST() {
 
   try {
     const sites = getConfiguredPageSpeedSites();
-    const report = await fetchPageSpeedBulkReport(sites, apiKey);
+    const requestReferer = new URL("/", request.url).toString();
+    const report = await fetchPageSpeedBulkReport(sites, apiKey, fetch, 2, requestReferer);
 
     return jsonResponse(report);
   } catch (error) {
