@@ -3,6 +3,7 @@
 import Script from "next/script";
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 
+import { PageSpeedSection } from "@/components/pagespeed-section";
 import { discoverDashboardProperties } from "@/lib/admin";
 import {
   configuredDashboardProperties,
@@ -42,6 +43,7 @@ import {
 } from "@/lib/github";
 import type {
   DashboardProperty,
+  PageSpeedBulkResponse,
   GitHubHistoryStore,
   GitHubSummary,
   GitHubTimeseriesPoint,
@@ -350,6 +352,9 @@ export function Dashboard() {
   const [githubStarHistory, setGitHubStarHistory] = useState<GitHubTimeseriesPoint[]>([]);
   const [githubFollowerHistory, setGitHubFollowerHistory] = useState<GitHubTimeseriesPoint[]>([]);
   const [githubError, setGitHubError] = useState<string | null>(null);
+  const [pageSpeedReport, setPageSpeedReport] = useState<PageSpeedBulkResponse | null>(null);
+  const [pageSpeedLoading, setPageSpeedLoading] = useState(false);
+  const [pageSpeedError, setPageSpeedError] = useState<string | null>(null);
 
   const tokenClientRef = useRef<GoogleTokenClient | null>(null);
   const googleAccessTokenRef = useRef<string | null>(null);
@@ -806,6 +811,41 @@ export function Dashboard() {
     await resetGitHubSignedOutState(null, true);
   }
 
+  async function runPageSpeedReport() {
+    setPageSpeedLoading(true);
+    setPageSpeedError(null);
+
+    try {
+      const response = await fetch("/api/pagespeed/bulk", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | PageSpeedBulkResponse
+        | { error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          payload && "error" in payload && typeof payload.error === "string"
+            ? payload.error
+            : `PageSpeed bulk report failed with status ${response.status}.`,
+        );
+      }
+
+      startTransition(() => {
+        setPageSpeedReport(payload as PageSpeedBulkResponse);
+      });
+    } catch (error) {
+      setPageSpeedError(error instanceof Error ? error.message : "PageSpeed bulk report failed.");
+    } finally {
+      setPageSpeedLoading(false);
+    }
+  }
+
   function startGitHubSignIn() {
     if (githubConfigError) {
       setGitHubError(githubConfigError);
@@ -846,7 +886,7 @@ export function Dashboard() {
         <header className="hero">
           <div className="hero__copy">
             <h1>GADash</h1>
-            <p className="hero__lede">Realtime GA4 plus GitHub account trend lines</p>
+            <p className="hero__lede">Realtime GA4, GitHub trend lines, and bulk PageSpeed checks</p>
           </div>
         </header>
 
@@ -977,6 +1017,13 @@ export function Dashboard() {
             </>
           ) : null}
         </section>
+
+        <PageSpeedSection
+          error={pageSpeedError}
+          isLoading={pageSpeedLoading}
+          onRun={() => void runPageSpeedReport()}
+          report={pageSpeedReport}
+        />
 
         <section className="integration integration--github">
           <div className="integration__header">

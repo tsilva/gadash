@@ -80,3 +80,37 @@ export type GitHubSummary = {
   isPartial: boolean;
   historyStartedAt: string | null;
 };
+
+export type PageSpeedMonitoredSite = {
+  url: string;
+  label: string;
+};
+
+export type PageSpeedRowStatus = "ok" | "error";
+
+export type PageSpeedStrategyMetrics = {
+  performance: number | null;
+  accessibility: number | null;
+  bestPractices: number | null;
+  seo: number | null;
+  firstContentfulPaint: string | null;
+  largestContentfulPaint: string | null;
+  totalBlockingTime: string | null;
+  cumulativeLayoutShift: string | null;
+};
+
+export type PageSpeedBulkRow = {
+  url: string;
+  label: string;
+  reportUrl: string;
+  status: PageSpeedRowStatus;
+  errorMessage?: string;
+  mobile: PageSpeedStrategyMetrics;
+  desktop: PageSpeedStrategyMetrics;
+};
+
+export type PageSpeedBulkResponse = {
+  fetchedAt: string;
+  totalSites: number;
+  rows: PageSpeedBulkRow[];
+};
