@@ -150,21 +150,23 @@ export function PageSpeedSection({
                 {visibleRows.map((row) => (
                   <tr key={row.url}>
                     <th className="properties-table__property properties-table__property--site" scope="row">
-                      <span className="properties-table__property-heading">
+                      <span className="properties-table__property-heading properties-table__property-heading--stacked">
                         <span className="properties-table__property-name">{row.label}</span>
-                        <span className="properties-table__property-actions">
-                          <a className="text-link" href={row.reportUrl} rel="noreferrer" target="_blank">
-                            Open report
-                          </a>
-                          <button
-                            className="text-link text-link--button"
-                            disabled={isLoading}
-                            onClick={() => onRecheck(row.url)}
-                            type="button"
-                          >
-                            {recheckingUrl === row.url ? "Rechecking..." : "Recheck"}
-                          </button>
-                        </span>
+                        {row.checkedAt ? (
+                          <span className="properties-table__property-actions properties-table__property-actions--stacked">
+                            <a className="text-link text-link--subtle" href={row.reportUrl} rel="noreferrer" target="_blank">
+                              Open report
+                            </a>
+                            <button
+                              className="text-link text-link--button text-link--subtle"
+                              disabled={isLoading}
+                              onClick={() => onRecheck(row.url)}
+                              type="button"
+                            >
+                              {recheckingUrl === row.url ? "Rechecking..." : "Recheck"}
+                            </button>
+                          </span>
+                        ) : null}
                       </span>
                       <span className="properties-table__property-meta">{formatLastChecked(row.checkedAt)}</span>
                       {row.errorMessage ? (

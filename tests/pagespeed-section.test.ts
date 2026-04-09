@@ -40,8 +40,8 @@ test("PageSpeedSection renders configured sites before the first report run", ()
   assert.match(markup, /Not run yet/);
   assert.doesNotMatch(markup, /https:\/\/alpha\.example\//);
   assert.match(markup, /Not run/);
-  assert.match(markup, /Open report/);
-  assert.match(markup, /Recheck/);
+  assert.doesNotMatch(markup, /Open report/);
+  assert.doesNotMatch(markup, /Recheck/);
 });
 
 test("PageSpeedSection renders table rows and error details", () => {
@@ -98,6 +98,8 @@ test("PageSpeedSection renders table rows and error details", () => {
   assert.match(markup, /Open report/);
   assert.match(markup, /Recheck/);
   assert.match(markup, /Last checked/);
+  assert.match(markup, /properties-table__property-heading--stacked/);
+  assert.match(markup, /text-link text-link--subtle/);
   assert.match(markup, /properties-table__metric properties-table__metric--warning/);
   assert.match(markup, /properties-table__metric properties-table__metric--success/);
 });

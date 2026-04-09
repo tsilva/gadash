@@ -450,6 +450,13 @@ button {
   flex-wrap: wrap;
 }
 
+.properties-table__property-heading--stacked {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
 .properties-table__property-name {
   color: var(--text);
   font-size: 0.95rem;
@@ -463,6 +470,11 @@ button {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.properties-table__property-actions--stacked {
+  font-size: 0.74rem;
+  line-height: 1.2;
 }
 
 .properties-table__property-meta {
@@ -515,6 +527,12 @@ button {
 .text-link {
   color: var(--accent);
   text-decoration: none;
+}
+
+.text-link--subtle {
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
 }
 
 .text-link--button {
