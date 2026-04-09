@@ -103,7 +103,8 @@ export type PageSpeedBulkRow = {
   url: string;
   label: string;
   reportUrl: string;
-  status: PageSpeedRowStatus;
+  checkedAt: string | null;
+  status: PageSpeedRowStatus | null;
   errorMessage?: string;
   mobile: PageSpeedStrategyMetrics;
   desktop: PageSpeedStrategyMetrics;

@@ -75,6 +75,7 @@ curl -H "x-sentry-smoke-token: $SENTRY_SMOKE_TEST_TOKEN" https://your-domain.exa
 ## PageSpeed Notes
 
 - The PageSpeed section is manual-only in v1. Click `Run PageSpeed bulk report` in the dashboard to read the configured site list from env and fetch fresh PSI results.
+- After the first run, each configured site shows its last checked timestamp and has a `Recheck` action that refreshes only that row.
 - Results are held in memory for the current page session only. There is no history, persistence, CSV export, or scheduled run yet.
 - Each row links to the external `pagespeed.web.dev` report for the audited site.
 
