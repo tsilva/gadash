@@ -2,8 +2,10 @@ import type {
   PageSpeedBulkResponse,
   PageSpeedBulkRow,
   PageSpeedMonitoredSite,
+  PageSpeedRowStatus,
   PageSpeedStrategyMetrics,
 } from "@/lib/types";
+import { createPageSpeedPlaceholderRow } from "@/lib/pagespeed";
 
 function formatTimestamp(value: string | null): string {
   if (!value) {
@@ -17,6 +19,10 @@ function formatTimestamp(value: string | null): string {
   }).format(new Date(value));
 }
 
+function formatLastChecked(value: string | null): string {
+  return value ? `Last checked ${formatTimestamp(value)}` : "Not run yet";
+}
+
 function formatScore(value: number | null): string {
   return value === null ? "—" : `${value}`;
 }
@@ -25,8 +31,20 @@ function formatMetric(value: string | null): string {
   return value ?? "—";
 }
 
-function buildReportUrl(url: string): string {
-  return `https://pagespeed.web.dev/?url=${encodeURIComponent(url)}`;
+function getScoreClassName(value: number | null): string {
+  if (value === null) {
+    return "";
+  }
+
+  if (value < 50) {
+    return "properties-table__metric--danger";
+  }
+
+  if (value < 90) {
+    return "properties-table__metric--warning";
+  }
+
+  return "properties-table__metric--success";
 }
 
 function getSharedMetric(
@@ -44,44 +62,32 @@ function getSharedMetric(
   return typeof desktopValue === "number" ? desktopValue : null;
 }
 
+type PageSpeedVisibleRow = Omit<PageSpeedBulkRow, "status"> & {
+  status: PageSpeedRowStatus | null;
+};
+
 type PageSpeedSectionProps = {
   configuredSites: PageSpeedMonitoredSite[];
   error: string | null;
   isLoading: boolean;
+  recheckingUrl: string | null;
   report: PageSpeedBulkResponse | null;
   onRun: () => void;
+  onRecheck: (url: string) => void;
 };
 
-export function PageSpeedSection({ configuredSites, error, isLoading, report, onRun }: PageSpeedSectionProps) {
-  const visibleRows =
+export function PageSpeedSection({
+  configuredSites,
+  error,
+  isLoading,
+  recheckingUrl,
+  report,
+  onRun,
+  onRecheck,
+}: PageSpeedSectionProps) {
+  const visibleRows: PageSpeedVisibleRow[] =
     report?.rows ??
-    configuredSites.map((site) => ({
-      url: site.url,
-      label: site.label,
-      reportUrl: buildReportUrl(site.url),
-      status: null,
-      errorMessage: undefined,
-      mobile: {
-        performance: null,
-        accessibility: null,
-        bestPractices: null,
-        seo: null,
-        firstContentfulPaint: null,
-        largestContentfulPaint: null,
-        totalBlockingTime: null,
-        cumulativeLayoutShift: null,
-      },
-      desktop: {
-        performance: null,
-        accessibility: null,
-        bestPractices: null,
-        seo: null,
-        firstContentfulPaint: null,
-        largestContentfulPaint: null,
-        totalBlockingTime: null,
-        cumulativeLayoutShift: null,
-      },
-    }));
+    configuredSites.map((site) => createPageSpeedPlaceholderRow(site));
 
   return (
     <section className="integration integration--pagespeed">
@@ -138,28 +144,48 @@ export function PageSpeedSection({ configuredSites, error, isLoading, report, on
                   <th scope="col">Desktop TBT</th>
                   <th scope="col">Desktop CLS</th>
                   <th scope="col">Status</th>
-                  <th scope="col">Report</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleRows.map((row) => (
                   <tr key={row.url}>
                     <th className="properties-table__property properties-table__property--site" scope="row">
-                      <span className="properties-table__property-name">{row.label}</span>
-                      <span className="properties-table__property-meta">{row.url}</span>
+                      <span className="properties-table__property-heading">
+                        <span className="properties-table__property-name">{row.label}</span>
+                        <span className="properties-table__property-actions">
+                          <a className="text-link" href={row.reportUrl} rel="noreferrer" target="_blank">
+                            Open report
+                          </a>
+                          <button
+                            className="text-link text-link--button"
+                            disabled={isLoading}
+                            onClick={() => onRecheck(row.url)}
+                            type="button"
+                          >
+                            {recheckingUrl === row.url ? "Rechecking..." : "Recheck"}
+                          </button>
+                        </span>
+                      </span>
+                      <span className="properties-table__property-meta">{formatLastChecked(row.checkedAt)}</span>
                       {row.errorMessage ? (
                         <span className="properties-table__property-error">{row.errorMessage}</span>
                       ) : null}
                     </th>
-                    <td className="properties-table__metric">{formatScore(row.mobile.performance)}</td>
-                    <td className="properties-table__metric">{formatScore(row.desktop.performance)}</td>
-                    <td className="properties-table__metric">
+                    <td className={`properties-table__metric ${getScoreClassName(row.mobile.performance)}`.trim()}>
+                      {formatScore(row.mobile.performance)}
+                    </td>
+                    <td className={`properties-table__metric ${getScoreClassName(row.desktop.performance)}`.trim()}>
+                      {formatScore(row.desktop.performance)}
+                    </td>
+                    <td className={`properties-table__metric ${getScoreClassName(getSharedMetric(row, "accessibility"))}`.trim()}>
                       {formatScore(getSharedMetric(row, "accessibility"))}
                     </td>
-                    <td className="properties-table__metric">
+                    <td className={`properties-table__metric ${getScoreClassName(getSharedMetric(row, "bestPractices"))}`.trim()}>
                       {formatScore(getSharedMetric(row, "bestPractices"))}
                     </td>
-                    <td className="properties-table__metric">{formatScore(getSharedMetric(row, "seo"))}</td>
+                    <td className={`properties-table__metric ${getScoreClassName(getSharedMetric(row, "seo"))}`.trim()}>
+                      {formatScore(getSharedMetric(row, "seo"))}
+                    </td>
                     <td className="properties-table__timestamp">{formatMetric(row.mobile.firstContentfulPaint)}</td>
                     <td className="properties-table__timestamp">{formatMetric(row.mobile.largestContentfulPaint)}</td>
                     <td className="properties-table__timestamp">{formatMetric(row.mobile.totalBlockingTime)}</td>
@@ -176,11 +202,6 @@ export function PageSpeedSection({ configuredSites, error, isLoading, report, on
                     </td>
                     <td className="properties-table__status">
                       {row.status ? <span className={`pill pill--${row.status}`}>{row.status}</span> : "Not run"}
-                    </td>
-                    <td className="properties-table__timestamp">
-                      <a className="text-link" href={row.reportUrl} rel="noreferrer" target="_blank">
-                        Open
-                      </a>
                     </td>
                   </tr>
                 ))}

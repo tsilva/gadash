@@ -12,6 +12,8 @@ test("PageSpeedSection renders a loading button state", () => {
       error: null,
       isLoading: true,
       onRun: () => undefined,
+      onRecheck: () => undefined,
+      recheckingUrl: null,
       report: null,
     }),
   );
@@ -27,14 +29,19 @@ test("PageSpeedSection renders configured sites before the first report run", ()
       error: null,
       isLoading: false,
       onRun: () => undefined,
+      onRecheck: () => undefined,
+      recheckingUrl: null,
       report: null,
     }),
   );
 
   assert.match(markup, /Monitoring 1 site • Run to fetch metrics/);
   assert.match(markup, /alpha\.example/);
-  assert.match(markup, /https:\/\/alpha\.example\//);
+  assert.match(markup, /Not run yet/);
+  assert.doesNotMatch(markup, /https:\/\/alpha\.example\//);
   assert.match(markup, /Not run/);
+  assert.match(markup, /Open report/);
+  assert.match(markup, /Recheck/);
 });
 
 test("PageSpeedSection renders table rows and error details", () => {
@@ -44,6 +51,8 @@ test("PageSpeedSection renders table rows and error details", () => {
       error: "Config missing",
       isLoading: false,
       onRun: () => undefined,
+      onRecheck: () => undefined,
+      recheckingUrl: null,
       report: {
         fetchedAt: "2026-04-09T12:00:00.000Z",
         totalSites: 1,
@@ -51,7 +60,8 @@ test("PageSpeedSection renders table rows and error details", () => {
           {
             url: "https://alpha.example/",
             label: "alpha.example",
-            reportUrl: "https://pagespeed.web.dev/?url=https%3A%2F%2Falpha.example%2F",
+            reportUrl: "https://pagespeed.web.dev/analysis?url=https%3A%2F%2Falpha.example%2F&form_factor=mobile",
+            checkedAt: "2026-04-09T12:00:00.000Z",
             status: "error",
             errorMessage: "Desktop: failed",
             mobile: {
@@ -85,5 +95,9 @@ test("PageSpeedSection renders table rows and error details", () => {
   assert.match(markup, /alpha\.example/);
   assert.match(markup, /PageSpeed bulk results/);
   assert.match(markup, /Desktop: failed/);
-  assert.match(markup, /Open/);
+  assert.match(markup, /Open report/);
+  assert.match(markup, /Recheck/);
+  assert.match(markup, /Last checked/);
+  assert.match(markup, /properties-table__metric properties-table__metric--warning/);
+  assert.match(markup, /properties-table__metric properties-table__metric--success/);
 });

@@ -71,8 +71,47 @@ function buildStrategyMetrics(response: PageSpeedApiResponse | null): PageSpeedS
   };
 }
 
-function buildReportUrl(url: string): string {
-  return `https://pagespeed.web.dev/?url=${encodeURIComponent(url)}`;
+export function buildPageSpeedReportUrl(url: string): string {
+  return `https://pagespeed.web.dev/analysis?url=${encodeURIComponent(url)}&form_factor=mobile`;
+}
+
+export function createPageSpeedPlaceholderRow(site: PageSpeedMonitoredSite): PageSpeedBulkRow {
+  return {
+    url: site.url,
+    label: site.label,
+    reportUrl: buildPageSpeedReportUrl(site.url),
+    checkedAt: null,
+    status: null,
+    errorMessage: undefined,
+    mobile: createEmptyStrategyMetrics(),
+    desktop: createEmptyStrategyMetrics(),
+  };
+}
+
+export function mergePageSpeedReportRow(
+  report: PageSpeedBulkResponse | null,
+  row: PageSpeedBulkRow,
+  configuredSites: PageSpeedMonitoredSite[],
+  fetchedAt: string,
+): PageSpeedBulkResponse {
+  const baseRows =
+    report?.rows.length && report.rows.length > 0
+      ? report.rows
+      : configuredSites.map((site) => createPageSpeedPlaceholderRow(site));
+
+  const rowsByUrl = new Map(baseRows.map((currentRow) => [currentRow.url, currentRow]));
+  rowsByUrl.set(row.url, row);
+
+  const orderedRows =
+    configuredSites.length > 0
+      ? configuredSites.map((site) => rowsByUrl.get(site.url) ?? createPageSpeedPlaceholderRow(site))
+      : [...rowsByUrl.values()];
+
+  return {
+    fetchedAt,
+    totalSites: configuredSites.length > 0 ? configuredSites.length : orderedRows.length,
+    rows: orderedRows,
+  };
 }
 
 function buildPageSpeedErrorMessage(status: number, response: PageSpeedApiResponse | null): string {
@@ -149,6 +188,7 @@ export async function fetchPageSpeedRow(
   apiKey: string,
   fetchImpl: FetchLike = fetch,
   referer?: string,
+  checkedAt = new Date().toISOString(),
 ): Promise<PageSpeedBulkRow> {
   const mobile = await fetchStrategyMetrics(site.url, "mobile", apiKey, fetchImpl, referer);
   const desktop = await fetchStrategyMetrics(site.url, "desktop", apiKey, fetchImpl, referer);
@@ -160,7 +200,8 @@ export async function fetchPageSpeedRow(
   return {
     url: site.url,
     label: site.label,
-    reportUrl: buildReportUrl(site.url),
+    reportUrl: buildPageSpeedReportUrl(site.url),
+    checkedAt,
     status: errorMessages.length === 0 ? "ok" : "error",
     errorMessage: errorMessages.join(" ") || undefined,
     mobile: mobile.metrics,
@@ -175,12 +216,13 @@ export async function fetchPageSpeedBulkReport(
   concurrency = 2,
   referer?: string,
 ): Promise<PageSpeedBulkResponse> {
+  const fetchedAt = new Date().toISOString();
   const rows = await mapWithConcurrency(sites, concurrency, (site) =>
-    fetchPageSpeedRow(site, apiKey, fetchImpl, referer),
+    fetchPageSpeedRow(site, apiKey, fetchImpl, referer, fetchedAt),
   );
 
   return {
-    fetchedAt: new Date().toISOString(),
+    fetchedAt,
     totalSites: sites.length,
     rows,
   };

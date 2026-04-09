@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fetchPageSpeedBulkReport } from "../lib/pagespeed.ts";
+import { fetchPageSpeedBulkReport, mergePageSpeedReportRow } from "../lib/pagespeed.ts";
 
 function buildSuccessResponse(strategy: string) {
   const performanceScore = strategy === "mobile" ? 0.91 : 0.99;
@@ -40,7 +40,11 @@ test("fetchPageSpeedBulkReport maps successful strategy results", async () => {
 
   assert.equal(report.totalSites, 1);
   assert.equal(report.rows[0]?.status, "ok");
-  assert.equal(report.rows[0]?.reportUrl, "https://pagespeed.web.dev/?url=https%3A%2F%2Falpha.example%2F");
+  assert.equal(
+    report.rows[0]?.reportUrl,
+    "https://pagespeed.web.dev/analysis?url=https%3A%2F%2Falpha.example%2F&form_factor=mobile",
+  );
+  assert.equal(report.rows[0]?.checkedAt, report.fetchedAt);
   assert.equal(report.rows[0]?.mobile.performance, 91);
   assert.equal(report.rows[0]?.desktop.performance, 99);
   assert.equal(report.rows[0]?.mobile.firstContentfulPaint, "1.2 s");
@@ -89,4 +93,50 @@ test("fetchPageSpeedBulkReport forwards an optional referer header", async () =>
   );
 
   assert.deepEqual(seenReferers, ["https://gadash.tsilva.eu/", "https://gadash.tsilva.eu/"]);
+});
+
+test("mergePageSpeedReportRow preserves configured order and fills placeholders", () => {
+  const merged = mergePageSpeedReportRow(
+    null,
+    {
+      url: "https://beta.example/",
+      label: "beta.example",
+      reportUrl: "https://pagespeed.web.dev/analysis?url=https%3A%2F%2Fbeta.example%2F&form_factor=mobile",
+      checkedAt: "2026-04-09T12:30:00.000Z",
+      status: "ok",
+      mobile: {
+        performance: 99,
+        accessibility: 98,
+        bestPractices: 97,
+        seo: 96,
+        firstContentfulPaint: "0.8 s",
+        largestContentfulPaint: "1.4 s",
+        totalBlockingTime: "20 ms",
+        cumulativeLayoutShift: "0.01",
+      },
+      desktop: {
+        performance: 100,
+        accessibility: 98,
+        bestPractices: 97,
+        seo: 96,
+        firstContentfulPaint: "0.4 s",
+        largestContentfulPaint: "0.9 s",
+        totalBlockingTime: "0 ms",
+        cumulativeLayoutShift: "0",
+      },
+    },
+    [
+      { url: "https://alpha.example/", label: "alpha.example" },
+      { url: "https://beta.example/", label: "beta.example" },
+    ],
+    "2026-04-09T12:30:00.000Z",
+  );
+
+  assert.equal(merged.totalSites, 2);
+  assert.equal(merged.rows[0]?.url, "https://alpha.example/");
+  assert.equal(merged.rows[0]?.status, null);
+  assert.equal(merged.rows[0]?.checkedAt, null);
+  assert.equal(merged.rows[1]?.url, "https://beta.example/");
+  assert.equal(merged.rows[1]?.status, "ok");
+  assert.equal(merged.rows[1]?.checkedAt, "2026-04-09T12:30:00.000Z");
 });
