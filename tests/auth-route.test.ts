@@ -71,6 +71,50 @@ test("POST /api/auth/google/session creates a cookie for the allowed Google acco
   }
 });
 
+test("POST /api/auth/google/session allows local sign-in without AUTH_SESSION_SECRET outside production", async () => {
+  const originalFetch = global.fetch;
+
+  try {
+    global.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          aud: "test-client-id.apps.googleusercontent.com",
+          email: "eng.tiago.silva@gmail.com",
+          email_verified: "true",
+          exp: `${Math.floor(Date.now() / 1000) + 300}`,
+          iss: "https://accounts.google.com",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )) as typeof fetch;
+
+    await withEnv(
+      {
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: "test-client-id.apps.googleusercontent.com",
+        AUTH_SESSION_SECRET: undefined,
+        ALLOWED_GOOGLE_EMAILS: "eng.tiago.silva@gmail.com",
+        NODE_ENV: "development",
+      },
+      async () => {
+        const response = await createGoogleSession(
+          new Request("https://gadash.tsilva.eu/api/auth/google/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ credential: "header.payload.signature" }),
+          }),
+        );
+        const payload = (await response.json()) as { ok: boolean; email: string };
+
+        assert.equal(response.status, 200);
+        assert.equal(payload.ok, true);
+        assert.equal(payload.email, "eng.tiago.silva@gmail.com");
+        assert.match(response.headers.get("set-cookie") ?? "", /gadash\.auth=/);
+      },
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test("POST /api/auth/google/session rejects an unallowed email", async () => {
   const originalFetch = global.fetch;
 
@@ -208,9 +252,53 @@ test("POST /api/auth/google/session rejects malformed payloads", async () => {
   assert.equal(payload.error, "Invalid Google sign-in request payload.");
 });
 
-test("POST /api/auth/sign-out clears the dashboard session cookie", async () => {
+test("POST /api/auth/google/session still requires AUTH_SESSION_SECRET in production", async () => {
+  const originalFetch = global.fetch;
+
+  try {
+    global.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          aud: "test-client-id.apps.googleusercontent.com",
+          email: "eng.tiago.silva@gmail.com",
+          email_verified: "true",
+          exp: `${Math.floor(Date.now() / 1000) + 300}`,
+          iss: "https://accounts.google.com",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )) as typeof fetch;
+
+    await withEnv(
+      {
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: "test-client-id.apps.googleusercontent.com",
+        AUTH_SESSION_SECRET: undefined,
+        ALLOWED_GOOGLE_EMAILS: "eng.tiago.silva@gmail.com",
+        NODE_ENV: "production",
+      },
+      async () => {
+        const response = await createGoogleSession(
+          new Request("https://gadash.tsilva.eu/api/auth/google/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ credential: "header.payload.signature" }),
+          }),
+        );
+        const payload = (await response.json()) as { error: string };
+
+        assert.equal(response.status, 500);
+        assert.equal(payload.error, "Missing AUTH_SESSION_SECRET server configuration.");
+      },
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("POST /api/auth/sign-out clears the dashboard and GitHub session cookies", async () => {
   const response = await signOut();
+  const setCookie = response.headers.get("set-cookie") ?? "";
 
   assert.equal(response.status, 200);
-  assert.match(response.headers.get("set-cookie") ?? "", /gadash\.auth=;/);
+  assert.match(setCookie, /gadash\.auth=;/);
+  assert.match(setCookie, /gadash\.github=;/);
 });

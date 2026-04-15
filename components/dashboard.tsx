@@ -14,14 +14,11 @@ import {
   getGoogleClientId,
 } from "@/lib/config";
 import {
-  clearStoredGitHubAuth,
   clearStoredGoogleAuth,
   clearSavedGoogleSession,
   hasSavedGoogleSession,
-  loadStoredGitHubAuth,
   loadStoredGoogleAuth,
   saveGoogleSession,
-  saveStoredGitHubAuth,
   saveStoredGoogleAuth,
 } from "@/lib/auth-session";
 import {
@@ -35,17 +32,14 @@ import {
 } from "@/lib/dashboard";
 import { fetchPropertyRealtimeSnapshot } from "@/lib/ga4";
 import { clearGitHubHistory, loadGitHubHistory, saveGitHubHistory } from "@/lib/github-history";
-import {
-  aggregateWeeklyContributions,
-  fetchGitHubContributionSeries,
-  fetchGitHubRepoLineGrowth,
-  fetchGitHubRepos,
-  fetchGitHubViewer,
-} from "@/lib/github";
+import { aggregateWeeklyContributions } from "@/lib/github";
 import { mergePageSpeedReportRow } from "@/lib/pagespeed";
 import type {
   DashboardProperty,
+  GitHubMetricsRequest,
+  GitHubMetricsResponse,
   GitHubHistoryStore,
+  GitHubSessionResponse,
   GitHubSummary,
   GitHubTimeseriesPoint,
   PageSpeedBulkResponse,
@@ -69,8 +63,6 @@ type GitHubAuthState = "signed_out" | "authorizing" | "loading" | "loaded";
 type GitHubAuthMessage = {
   type?: string;
   success?: boolean;
-  accessToken?: string;
-  scope?: string;
   error?: string;
 };
 
@@ -280,34 +272,12 @@ function GitHubMark() {
   );
 }
 
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  concurrency: number,
-  mapper: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let index = 0;
-
-  async function worker() {
-    while (index < items.length) {
-      const currentIndex = index;
-      index += 1;
-      results[currentIndex] = await mapper(items[currentIndex]);
-    }
-  }
-
-  await Promise.all(
-    Array.from({ length: Math.min(concurrency, Math.max(items.length, 1)) }, () => worker()),
-  );
-
-  return results;
-}
-
 type DashboardProps = {
   configuredPageSpeedSites?: PageSpeedMonitoredSite[];
+  nonce?: string;
 };
 
-export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
+export function Dashboard({ configuredPageSpeedSites = [], nonce }: DashboardProps) {
   const [googlePhase, setGooglePhase] = useState<"signed_out" | "authorizing" | "loading" | "loaded">(
     "signed_out",
   );
@@ -322,7 +292,7 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
   const [googleStale, setGoogleStale] = useState(false);
 
   const [githubPhase, setGitHubPhase] = useState<GitHubAuthState>("signed_out");
-  const [githubAccessToken, setGitHubAccessToken] = useState<string | null>(null);
+  const [githubConnected, setGitHubConnected] = useState(false);
   const [githubScope, setGitHubScope] = useState("");
   const [githubSummary, setGitHubSummary] = useState<GitHubSummary | null>(null);
   const [githubViewerUrl, setGitHubViewerUrl] = useState<string | null>(null);
@@ -338,7 +308,6 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
 
   const tokenClientRef = useRef<GoogleTokenClient | null>(null);
   const googleAccessTokenRef = useRef<string | null>(null);
-  const githubAccessTokenRef = useRef<string | null>(null);
   const propertiesRef = useRef<DashboardProperty[]>(properties);
   const snapshotsRef = useRef<PropertyRealtimeSnapshot[]>(snapshots);
   const refreshGoogleDataRef = useRef<() => Promise<void>>(async () => undefined);
@@ -445,10 +414,9 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
 
   const resetGitHubSignedOutState = useCallback(
     async (message: string | null, clearHistory = false) => {
-      const login = githubSummary?.login;
+      const login = githubHistoryRef.current.login;
 
-      githubAccessTokenRef.current = null;
-      setGitHubAccessToken(null);
+      setGitHubConnected(false);
       setGitHubScope("");
       setGitHubSummary(null);
       setGitHubViewerUrl(null);
@@ -458,13 +426,13 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
       setGitHubFollowerHistory([]);
       setGitHubError(message);
       setGitHubPhase("signed_out");
-      clearStoredGitHubAuth(window.sessionStorage);
+      githubHistoryRef.current = createEmptyGitHubHistory("");
 
       if (clearHistory && login) {
         await clearGitHubHistory(login);
       }
     },
-    [githubSummary?.login],
+    [],
   );
 
   const requestAccessToken = useCallback(
@@ -485,29 +453,62 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
     [],
   );
 
+  const fetchGitHubMetricsRoute = useCallback(
+    async (requestBody: GitHubMetricsRequest): Promise<GitHubMetricsResponse> => {
+      const response = await fetch("/api/github/metrics", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | GitHubMetricsResponse
+        | { error?: string }
+        | null;
+
+      if (!response.ok) {
+        throw new Error(
+          payload && "error" in payload && typeof payload.error === "string"
+            ? payload.error
+            : `GitHub data refresh failed with status ${response.status}.`,
+        );
+      }
+
+      return payload as GitHubMetricsResponse;
+    },
+    [],
+  );
+
   const refreshGitHubData = useCallback(async () => {
-    const activeToken = githubAccessTokenRef.current;
-
-    if (!activeToken) {
-      return;
-    }
-
     setGitHubPhase("loading");
 
     try {
-      const fetchedAt = new Date().toISOString();
-      const [viewer, repos, contributions] = await Promise.all([
-        fetchGitHubViewer(activeToken),
-        fetchGitHubRepos(activeToken),
-        fetchGitHubContributionSeries(activeToken),
-      ]);
+      const currentLogin = githubSummary?.login ?? githubHistoryRef.current.login;
+      const storedHistory = currentLogin
+        ? await loadGitHubHistory(currentLogin)
+        : createEmptyGitHubHistory("");
+      const today = new Date().toISOString().slice(0, 10);
+      const staleRepos = storedHistory.repoLineGrowth
+        .filter((entry) => entry.fetchedOn.slice(0, 10) !== today)
+        .map((entry) => ({
+          id: entry.repoId,
+          nameWithOwner: entry.repoName,
+        }));
+      const metricsRequest =
+        currentLogin.length > 0
+          ? { staleRepos }
+          : {};
+      const { fetchedAt, scope, viewer, repos, contributions, repoLineGrowth: refreshedLineGrowth } =
+        await fetchGitHubMetricsRoute(metricsRequest);
       const history = await loadGitHubHistory(viewer.login);
-      const today = fetchedAt.slice(0, 10);
+
+      setGitHubConnected(true);
+      setGitHubScope(scope);
+
       const existingByRepo = new Map(history.repoLineGrowth.map((entry) => [entry.repoId, entry]));
-      const staleRepos = repos.filter((repo) => existingByRepo.get(repo.id)?.fetchedOn.slice(0, 10) !== today);
-      const refreshedLineGrowth = await mapWithConcurrency(staleRepos, 4, (repo) =>
-        fetchGitHubRepoLineGrowth(repo, activeToken),
-      );
       const refreshedByRepo = new Map(refreshedLineGrowth.map((entry) => [entry.repoId, entry]));
       const repoLineGrowth = repos.map(
         (repo) =>
@@ -563,11 +564,10 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
       setGitHubError(message);
       setGitHubPhase("loaded");
     }
-  }, [resetGitHubSignedOutState]);
+  }, [fetchGitHubMetricsRoute, githubSummary?.login, resetGitHubSignedOutState]);
 
   useEffect(() => {
     const restoredGoogleAuth = loadStoredGoogleAuth(window.sessionStorage);
-    const restoredGitHubAuth = loadStoredGitHubAuth(window.sessionStorage);
 
     if (restoredGoogleAuth) {
       queueMicrotask(() => {
@@ -577,16 +577,6 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
         setGoogleError(null);
         setGoogleStale(false);
         setGooglePhase("loading");
-      });
-    }
-
-    if (restoredGitHubAuth) {
-      queueMicrotask(() => {
-        githubAccessTokenRef.current = restoredGitHubAuth.accessToken;
-        setGitHubAccessToken(restoredGitHubAuth.accessToken);
-        setGitHubScope(restoredGitHubAuth.scope);
-        setGitHubError(null);
-        setGitHubPhase("loading");
       });
     }
   }, []);
@@ -660,21 +650,16 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
       githubPopupRef.current?.close();
       githubPopupRef.current = null;
 
-      if (!event.data.success || !event.data.accessToken) {
+      if (!event.data.success) {
         setGitHubError(event.data.error ?? "GitHub sign-in failed.");
         setGitHubPhase("signed_out");
         return;
       }
 
-      githubAccessTokenRef.current = event.data.accessToken;
-      setGitHubAccessToken(event.data.accessToken);
-      setGitHubScope(event.data.scope ?? "");
-      saveStoredGitHubAuth(window.sessionStorage, {
-        accessToken: event.data.accessToken,
-        scope: event.data.scope ?? "",
-      });
+      setGitHubConnected(true);
       setGitHubError(null);
       setGitHubPhase("loading");
+      void refreshGitHubDataRef.current();
     }
 
     window.addEventListener("message", handleGitHubMessage);
@@ -685,10 +670,6 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
   useEffect(() => {
     googleAccessTokenRef.current = googleAccessToken;
   }, [googleAccessToken]);
-
-  useEffect(() => {
-    githubAccessTokenRef.current = githubAccessToken;
-  }, [githubAccessToken]);
 
   useEffect(() => {
     propertiesRef.current = properties;
@@ -749,14 +730,52 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
   }, [clearGoogleRefreshTimer, googleAccessToken]);
 
   useEffect(() => {
-    if (!githubAccessToken) {
-      return;
-    }
+    queueMicrotask(async () => {
+      try {
+        const response = await fetch("/api/github/session", {
+          headers: {
+            Accept: "application/json",
+          },
+          cache: "no-store",
+        });
+        const payload = (await response.json().catch(() => null)) as
+          | GitHubSessionResponse
+          | { error?: string }
+          | null;
 
-    queueMicrotask(() => {
-      void refreshGitHubDataRef.current();
+        if (response.status === 401) {
+          await resetGitHubSignedOutState(null, false);
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            payload && "error" in payload && typeof payload.error === "string"
+              ? payload.error
+              : `GitHub session check failed with status ${response.status}.`,
+          );
+        }
+
+        const session = payload as GitHubSessionResponse;
+        setGitHubConnected(session.connected);
+        setGitHubScope(session.scope ?? "");
+
+        if (!session.connected) {
+          setGitHubPhase("signed_out");
+          return;
+        }
+
+        setGitHubError(null);
+        setGitHubPhase("loading");
+        void refreshGitHubDataRef.current();
+      } catch (error) {
+        setGitHubConnected(false);
+        setGitHubScope("");
+        setGitHubError(error instanceof Error ? error.message : "GitHub session check failed.");
+        setGitHubPhase("signed_out");
+      }
     });
-  }, [githubAccessToken]);
+  }, [resetGitHubSignedOutState]);
 
   useEffect(() => {
     if (!googleAccessToken || !googleExpiresAt) {
@@ -807,6 +826,18 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
   }
 
   async function signOutGitHub() {
+    try {
+      await fetch("/api/github/sign-out", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
+    } catch {
+      // The local reset below still clears the dashboard state.
+    }
+
     await resetGitHubSignedOutState(null, true);
   }
 
@@ -902,6 +933,7 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
   return (
     <>
       <Script
+        nonce={nonce}
         src="https://accounts.google.com/gsi/client"
         strategy="afterInteractive"
         onLoad={() => {
@@ -1065,7 +1097,7 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
               <h2>Account activity</h2>
             </div>
             <div className="integration__actions">
-              {githubAccessToken ? (
+              {githubConnected ? (
                 <>
                   <button className="button" onClick={() => void refreshGitHubDataRef.current()} type="button">
                     Refresh
@@ -1095,8 +1127,8 @@ export function Dashboard({ configuredPageSpeedSites = [] }: DashboardProps) {
           </div>
 
           <section className="status-bar">
-            <span className={githubAccessToken ? "status-bar__live-dot" : ""}>
-              {githubAccessToken ? (githubPhase === "loading" ? "Refreshing" : "Connected") : "Signed out"}
+            <span className={githubConnected ? "status-bar__live-dot" : ""}>
+              {githubConnected ? (githubPhase === "loading" ? "Refreshing" : "Connected") : "Signed out"}
             </span>
             <span>
               {githubSummary

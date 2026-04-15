@@ -43,6 +43,8 @@ export type GitHubTimeseriesPoint = {
   secondaryValue?: number;
 };
 
+export type GitHubContributionPoint = GitHubTimeseriesPoint;
+
 export type GitHubSnapshot = {
   date: string;
   fetchedAt: string;
@@ -79,6 +81,28 @@ export type GitHubSummary = {
   excludedRepoCount: number;
   isPartial: boolean;
   historyStartedAt: string | null;
+};
+
+export type GitHubMetricsRequest = {
+  staleRepos?: Array<Pick<GitHubRepo, "id" | "nameWithOwner">>;
+};
+
+export type GitHubMetricsResponse = {
+  scope: string;
+  viewer: {
+    login: string;
+    followers: number;
+    profileUrl: string;
+  };
+  repos: GitHubRepo[];
+  contributions: GitHubContributionPoint[];
+  repoLineGrowth: GitHubRepoLineGrowth[];
+  fetchedAt: string;
+};
+
+export type GitHubSessionResponse = {
+  connected: boolean;
+  scope?: string;
 };
 
 export type PageSpeedMonitoredSite = {

@@ -1,13 +1,22 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
 const GOOGLE_TOKEN_INFO_URL = "https://oauth2.googleapis.com/tokeninfo";
 export const DASHBOARD_AUTH_COOKIE_NAME = "gadash.auth";
+export const GITHUB_AUTH_COOKIE_NAME = "gadash.github";
 const AUTH_SESSION_LIFETIME_SECONDS = 60 * 60 * 24;
+let developmentSessionSecret: string | null = null;
 
 type DashboardSessionPayload = {
   email: string;
+  exp: number;
+  iat: number;
+};
+
+type GitHubSessionPayload = {
+  accessToken: string;
+  scope: string;
   exp: number;
   iat: number;
 };
@@ -28,6 +37,13 @@ export type DashboardSession = {
   issuedAt: number;
 };
 
+export type GitHubSession = {
+  accessToken: string;
+  scope: string;
+  expiresAt: number;
+  issuedAt: number;
+};
+
 function encodeBase64Url(value: string): string {
   return Buffer.from(value, "utf8").toString("base64url");
 }
@@ -37,7 +53,23 @@ function decodeBase64Url(value: string): string {
 }
 
 function getSessionSecret(): string {
-  return process.env.AUTH_SESSION_SECRET?.trim() ?? "";
+  const configuredSecret = process.env.AUTH_SESSION_SECRET?.trim();
+
+  if (configuredSecret) {
+    return configuredSecret;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return "";
+  }
+
+  // Keep local development and tests usable even if the cookie-signing secret
+  // has not been configured yet. Production still requires an explicit secret.
+  if (!developmentSessionSecret) {
+    developmentSessionSecret = randomBytes(32).toString("base64url");
+  }
+
+  return developmentSessionSecret;
 }
 
 function isSecureCookie(): boolean {
@@ -104,6 +136,36 @@ export function createDashboardSessionValue(
   return `${encodedPayload}.${signature}`;
 }
 
+export function createGitHubSessionValue(
+  accessToken: string,
+  scope: string,
+  secret = getSessionSecret(),
+  now = Date.now(),
+  lifetimeSeconds = AUTH_SESSION_LIFETIME_SECONDS,
+): string {
+  if (secret.length === 0) {
+    throw new Error("Missing AUTH_SESSION_SECRET server configuration.");
+  }
+
+  const normalizedAccessToken = accessToken.trim();
+
+  if (normalizedAccessToken.length === 0) {
+    throw new Error("GitHub session access token is required.");
+  }
+
+  const issuedAt = Math.floor(now / 1000);
+  const payload: GitHubSessionPayload = {
+    accessToken: normalizedAccessToken,
+    scope: scope.trim(),
+    iat: issuedAt,
+    exp: issuedAt + lifetimeSeconds,
+  };
+  const encodedPayload = encodeBase64Url(JSON.stringify(payload));
+  const signature = getSignature(encodedPayload, secret).toString("base64url");
+
+  return `${encodedPayload}.${signature}`;
+}
+
 export function readDashboardSessionValue(
   value: string | null | undefined,
   secret = getSessionSecret(),
@@ -149,6 +211,53 @@ export function readDashboardSessionValue(
   }
 }
 
+export function readGitHubSessionValue(
+  value: string | null | undefined,
+  secret = getSessionSecret(),
+  now = Date.now(),
+): GitHubSession | null {
+  if (!value || secret.length === 0) {
+    return null;
+  }
+
+  const [encodedPayload, encodedSignature, extraPart] = value.split(".");
+
+  if (!encodedPayload || !encodedSignature || extraPart) {
+    return null;
+  }
+
+  try {
+    const expectedSignature = getSignature(encodedPayload, secret);
+    const actualSignature = Buffer.from(encodedSignature, "base64url");
+
+    if (
+      expectedSignature.length !== actualSignature.length ||
+      !timingSafeEqual(expectedSignature, actualSignature)
+    ) {
+      return null;
+    }
+
+    const payload = JSON.parse(decodeBase64Url(encodedPayload)) as Partial<GitHubSessionPayload>;
+    const exp = parseNumericTimestamp(payload.exp);
+    const iat = parseNumericTimestamp(payload.iat);
+    const accessToken =
+      typeof payload.accessToken === "string" ? payload.accessToken.trim() : "";
+
+    if (!accessToken || exp === null || iat === null || exp <= Math.floor(now / 1000)) {
+      return null;
+    }
+
+    return {
+      accessToken,
+      scope: typeof payload.scope === "string" ? payload.scope : "",
+      expiresAt: exp * 1000,
+      issuedAt: iat * 1000,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function getCookieValue(cookieHeader: string | null | undefined, name: string): string | null {
   if (!cookieHeader) {
     return null;
@@ -176,6 +285,17 @@ export function readDashboardSessionFromRequest(
   return readDashboardSessionValue(cookieValue, secret, now);
 }
 
+export function readGitHubSessionFromRequest(
+  request: Pick<Request, "headers">,
+  secret = getSessionSecret(),
+  now = Date.now(),
+): GitHubSession | null {
+  const cookieHeader = request.headers.get("cookie");
+  const cookieValue = getCookieValue(cookieHeader, GITHUB_AUTH_COOKIE_NAME);
+
+  return readGitHubSessionValue(cookieValue, secret, now);
+}
+
 export function setDashboardSessionCookie(response: NextResponse, email: string): void {
   response.cookies.set(DASHBOARD_AUTH_COOKIE_NAME, createDashboardSessionValue(email), {
     httpOnly: true,
@@ -188,6 +308,30 @@ export function setDashboardSessionCookie(response: NextResponse, email: string)
 
 export function clearDashboardSessionCookie(response: NextResponse): void {
   response.cookies.set(DASHBOARD_AUTH_COOKIE_NAME, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isSecureCookie(),
+    path: "/",
+    maxAge: 0,
+  });
+}
+
+export function setGitHubSessionCookie(
+  response: NextResponse,
+  accessToken: string,
+  scope: string,
+): void {
+  response.cookies.set(GITHUB_AUTH_COOKIE_NAME, createGitHubSessionValue(accessToken, scope), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isSecureCookie(),
+    path: "/",
+    maxAge: AUTH_SESSION_LIFETIME_SECONDS,
+  });
+}
+
+export function clearGitHubSessionCookie(response: NextResponse): void {
+  response.cookies.set(GITHUB_AUTH_COOKIE_NAME, "", {
     httpOnly: true,
     sameSite: "lax",
     secure: isSecureCookie(),
