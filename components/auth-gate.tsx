@@ -90,7 +90,7 @@ export function LockedDashboardScreen({
   );
 }
 
-export function AuthGate() {
+export function AuthGate({ nonce }: { nonce?: string }) {
   const [scriptReady, setScriptReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -164,6 +164,7 @@ export function AuthGate() {
   return (
     <>
       <Script
+        nonce={nonce}
         src="https://accounts.google.com/gsi/client"
         strategy="afterInteractive"
         onLoad={() => {

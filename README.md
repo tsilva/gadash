@@ -1,8 +1,8 @@
 # GADash
 
-Next.js dashboard for GA4 Realtime data, GitHub account trends, and on-demand bulk PageSpeed checks. The whole dashboard is gated behind a server-verified Google identity session; Google Analytics data still stays client-side after access is granted; GitHub metrics use a server-side OAuth token exchange route; PageSpeed bulk runs use a server-side API route so the PSI API key stays private.
+Next.js dashboard for GA4 Realtime data, GitHub account trends, and on-demand bulk PageSpeed checks. The whole dashboard is gated behind a server-verified Google identity session; Google Analytics data still stays client-side after access is granted; GitHub metrics now use a server-held HttpOnly OAuth session and server-side proxy routes; PageSpeed bulk runs use a server-side API route so the PSI API key stays private.
 
-The app keeps the live Google and GitHub access tokens only in `sessionStorage`, so reloading the same tab stays signed in until the token expires or the tab is closed. Google also keeps a local session marker for best-effort silent restore on trusted browsers. On shared devices, use the in-app `Sign out` button before closing the tab.
+The app keeps the live Google Analytics access token only in `sessionStorage`, so reloading the same tab stays signed in until the token expires or the tab is closed. GitHub access stays in an HttpOnly server cookie and is never exposed to browser JavaScript. Google also keeps a local session marker for best-effort silent restore on trusted browsers. On shared devices, use the in-app `Sign out` button before closing the tab.
 
 ## Setup
 
@@ -18,7 +18,7 @@ The app keeps the live Google and GitHub access tokens only in `sessionStorage`,
    - `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
    - `NEXT_PUBLIC_GOOGLE_AUTHORIZED_ORIGINS`
    - `NEXT_PUBLIC_SITE_URL` with the canonical app origin used for metadata and social tags
-   - `AUTH_SESSION_SECRET` with a long random string used to sign the private dashboard cookie
+   - `AUTH_SESSION_SECRET` with a long random string used to sign the private dashboard cookie in production. Local development falls back to a process-local ephemeral secret when this is unset.
    - `ALLOWED_GOOGLE_EMAILS` with the comma-separated Google email allowlist permitted to open the dashboard
    - `NEXT_PUBLIC_GITHUB_CLIENT_ID`
    - `NEXT_PUBLIC_GITHUB_AUTHORIZED_ORIGINS`
@@ -67,9 +67,10 @@ pnpm dev
 - Add the production origin to `NEXT_PUBLIC_GITHUB_AUTHORIZED_ORIGINS` and the GitHub OAuth App settings.
 - Vercel preview URLs are intentionally not part of v1 unless you explicitly register them with Google.
 - Keep the app's security headers intact in production. Edge/CDN rules must not weaken the shipped `Content-Security-Policy`, framing protections, or related browser hardening headers.
-- The app sends baseline security headers itself, including CSP, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`, and a restrictive `Permissions-Policy`.
+- The app sends baseline security headers itself, including a per-request nonce-based CSP, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Content-Type-Options: nosniff`, and a restrictive `Permissions-Policy`.
 - Silent restore is intended only for trusted browser profiles where re-opening the dashboard should reuse an active Google session without another consent prompt.
 - Opening the app now requires a Google identity sign-in first. The Google Analytics section still requests `analytics.readonly` separately after the dashboard is unlocked.
+- Full sign-out clears both the dashboard access cookie and the server-held GitHub session cookie.
 - Once `SENTRY_SMOKE_TEST_TOKEN` is set, you can verify live server-side ingestion with:
 
 ```bash
@@ -86,8 +87,9 @@ curl -H "x-sentry-smoke-token: $SENTRY_SMOKE_TEST_TOKEN" https://your-domain.exa
 
 ## GitHub Metrics Notes
 
-- GitHub sign-in uses a Vercel/Next route handler for the OAuth code exchange because GitHub does not expose a browser-safe token exchange endpoint.
+- GitHub sign-in uses Vercel/Next route handlers for the OAuth code exchange, session cookie issuance, and GitHub API proxying because GitHub does not expose a browser-safe token exchange endpoint.
 - GitHub OAuth routes are also guarded by the private dashboard session, so the GitHub sign-in popup only works after the Google identity gate succeeds.
+- The browser never receives a raw GitHub OAuth token. Dashboard reads go through server routes backed by the HttpOnly GitHub session cookie.
 - GitHub trend history is stored in browser-local IndexedDB and is not synced across devices.
 - Stars and followers charts are prospective only. They begin from the first successful local snapshot in that browser profile.
 - Net line growth is based on GitHub repository statistics (`additions + deletions`) and is not an exact total lines-of-code chart.

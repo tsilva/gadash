@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { clearDashboardSessionCookie, clearGitHubSessionCookie } from "@/lib/server-auth";
+import { clearGitHubSessionCookie } from "@/lib/server-auth";
 
 export async function POST() {
   const response = NextResponse.json(
@@ -12,7 +12,6 @@ export async function POST() {
     },
   );
 
-  clearDashboardSessionCookie(response);
   clearGitHubSessionCookie(response);
 
   return response;
