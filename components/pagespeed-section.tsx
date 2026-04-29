@@ -72,6 +72,7 @@ type PageSpeedSectionProps = {
   error: string | null;
   googleConfigError: string | null;
   googleAuthState: "checking" | "ready" | "signed_out" | "authorizing" | "loading" | "loaded";
+  hasGoogleAccessToken: boolean;
   hasDashboardSession: boolean;
   isLoading: boolean;
   recheckingUrl: string | null;
@@ -85,6 +86,7 @@ export function PageSpeedSection({
   error,
   googleConfigError,
   googleAuthState,
+  hasGoogleAccessToken,
   hasDashboardSession,
   isLoading,
   recheckingUrl,
@@ -95,7 +97,7 @@ export function PageSpeedSection({
   const visibleRows: PageSpeedVisibleRow[] =
     report?.rows ??
     configuredSites.map((site) => createPageSpeedPlaceholderRow(site));
-  const isLocked = !hasDashboardSession;
+  const isLocked = !hasDashboardSession || !hasGoogleAccessToken;
   const resultsContent =
     visibleRows.length > 0 ? (
       <section className="properties">
