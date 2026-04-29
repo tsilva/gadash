@@ -10,14 +10,13 @@ test("HomePageView renders the dashboard before any integration sign-in", () => 
     createElement(HomePageView, {
       hasDashboardSession: false,
       nonce: "test-nonce",
-      configuredPageSpeedSites: [{ url: "https://alpha.example/", label: "alpha.example" }],
     }),
   );
 
   assert.match(markup, /Realtime active users/);
-  assert.match(markup, /alpha\.example/);
+  assert.doesNotMatch(markup, /Bulk site checks/);
+  assert.doesNotMatch(markup, /alpha\.example/);
   assert.match(markup, /Sign in with Google/);
-  assert.match(markup, /nonce="test-nonce"/);
 });
 
 test("HomePageView renders PageSpeed run controls when the Google dashboard session exists", () => {
@@ -25,12 +24,10 @@ test("HomePageView renders PageSpeed run controls when the Google dashboard sess
     createElement(HomePageView, {
       hasDashboardSession: true,
       nonce: "test-nonce",
-      configuredPageSpeedSites: [{ url: "https://alpha.example/", label: "alpha.example" }],
     }),
   );
 
   assert.match(markup, /Realtime active users/);
-  assert.match(markup, /alpha\.example/);
+  assert.match(markup, /No Google Analytics web stream URLs were discovered/);
   assert.match(markup, /Run PageSpeed bulk report/);
-  assert.match(markup, /nonce="test-nonce"/);
 });

@@ -5,7 +5,7 @@ import { startTransition, useCallback, useEffect, useRef, useState } from "react
 
 import { GoogleMark } from "@/components/google-mark";
 import { PageSpeedSection } from "@/components/pagespeed-section";
-import { discoverDashboardProperties } from "@/lib/admin";
+import { discoverDashboardProperties, discoverPageSpeedSites } from "@/lib/admin";
 import {
   configuredDashboardProperties,
   getGitHubAuthorizedOrigins,
@@ -275,13 +275,11 @@ function GitHubMark() {
 }
 
 type DashboardProps = {
-  configuredPageSpeedSites?: PageSpeedMonitoredSite[];
   hasDashboardSession?: boolean;
   nonce?: string;
 };
 
 export function Dashboard({
-  configuredPageSpeedSites = [],
   hasDashboardSession = false,
   nonce,
 }: DashboardProps) {
@@ -310,6 +308,7 @@ export function Dashboard({
   const [githubFollowerHistory, setGitHubFollowerHistory] = useState<GitHubTimeseriesPoint[]>([]);
   const [githubError, setGitHubError] = useState<string | null>(null);
   const [pageSpeedReport, setPageSpeedReport] = useState<PageSpeedBulkResponse | null>(null);
+  const [pageSpeedSites, setPageSpeedSites] = useState<PageSpeedMonitoredSite[]>([]);
   const [pageSpeedLoading, setPageSpeedLoading] = useState(false);
   const [pageSpeedError, setPageSpeedError] = useState<string | null>(null);
   const [pageSpeedRecheckingUrl, setPageSpeedRecheckingUrl] = useState<string | null>(null);
@@ -416,6 +415,11 @@ export function Dashboard({
       clearStoredGoogleAuth(window.sessionStorage);
       setProperties(configuredDashboardProperties);
       setSnapshots(createLoadingState(configuredDashboardProperties));
+      setPageSpeedSites([]);
+      setPageSpeedReport(null);
+      setPageSpeedError(null);
+      setPageSpeedRecheckingUrl(null);
+      setPageSpeedLoading(false);
       setGoogleStale(false);
       setGoogleError(message);
       setGooglePhase("signed_out");
@@ -766,9 +770,16 @@ export function Dashboard({
       try {
         const discoveredProperties = await discoverDashboardProperties(googleAccessToken);
 
+        if (googleAccessTokenRef.current !== googleAccessToken) {
+          return;
+        }
+
         if (discoveredProperties.length === 0) {
           setProperties([]);
           setSnapshots([]);
+          setPageSpeedSites([]);
+          setPageSpeedReport(null);
+          setPageSpeedError(null);
           setGoogleError("No GA4 properties were discovered for this Google account.");
           setGoogleStale(false);
           setGooglePhase("loaded");
@@ -778,12 +789,40 @@ export function Dashboard({
         propertiesRef.current = discoveredProperties;
         setProperties(discoveredProperties);
         setSnapshots(createLoadingState(discoveredProperties));
+        setPageSpeedSites([]);
+        setPageSpeedReport(null);
+        setPageSpeedError(null);
         setGoogleError(null);
         setGoogleStale(false);
+
+        void discoverPageSpeedSites(discoveredProperties, googleAccessToken)
+          .then((discoveredSites) => {
+            if (googleAccessTokenRef.current !== googleAccessToken) {
+              return;
+            }
+
+            setPageSpeedSites(discoveredSites);
+          })
+          .catch((error) => {
+            if (googleAccessTokenRef.current !== googleAccessToken) {
+              return;
+            }
+
+            setPageSpeedSites([]);
+            setPageSpeedError(
+              error instanceof Error
+                ? `PageSpeed site discovery failed: ${error.message}`
+                : "PageSpeed site discovery failed.",
+            );
+          });
+
         void refreshGoogleDataRef.current();
       } catch (error) {
         setProperties(configuredDashboardProperties);
         setSnapshots(createLoadingState(configuredDashboardProperties));
+        setPageSpeedSites([]);
+        setPageSpeedReport(null);
+        setPageSpeedError(null);
         setGoogleError(
           error instanceof Error
             ? `Property discovery failed: ${error.message}`
@@ -915,6 +954,11 @@ export function Dashboard({
       return;
     }
 
+    if (pageSpeedSites.length === 0) {
+      setPageSpeedError("No Google Analytics web stream URLs were discovered.");
+      return;
+    }
+
     setPageSpeedLoading(true);
     setPageSpeedError(null);
     setPageSpeedRecheckingUrl(url ?? null);
@@ -924,9 +968,9 @@ export function Dashboard({
         method: "POST",
         headers: {
           Accept: "application/json",
-          ...(url ? { "Content-Type": "application/json" } : {}),
+          "Content-Type": "application/json",
         },
-        ...(url ? { body: JSON.stringify({ url }) } : {}),
+        body: JSON.stringify({ sites: pageSpeedSites, ...(url ? { url } : {}) }),
         cache: "no-store",
       });
       const payload = (await response.json().catch(() => null)) as
@@ -958,7 +1002,7 @@ export function Dashboard({
           }
 
           setPageSpeedReport((currentReport) =>
-            mergePageSpeedReportRow(currentReport, refreshedRow, configuredPageSpeedSites, nextReport.fetchedAt),
+            mergePageSpeedReportRow(currentReport, refreshedRow, pageSpeedSites, nextReport.fetchedAt),
           );
           return;
         }
@@ -1159,7 +1203,7 @@ export function Dashboard({
         </section>
 
         <PageSpeedSection
-          configuredSites={configuredPageSpeedSites}
+          configuredSites={pageSpeedSites}
           error={pageSpeedError}
           googleAuthState={googleAuthState}
           googleConfigError={googleConfigError}
