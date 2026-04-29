@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fetchPageSpeedBulkReport, mergePageSpeedReportRow } from "../lib/pagespeed.ts";
+import { fetchPageSpeedBulkReport, fetchPageSpeedRow, mergePageSpeedReportRow } from "../lib/pagespeed.ts";
 
 function buildSuccessResponse(strategy: string) {
   const performanceScore = strategy === "mobile" ? 0.91 : 0.99;
@@ -74,6 +74,67 @@ test("fetchPageSpeedBulkReport preserves partial site failures", async () => {
   assert.match(report.rows[0]?.errorMessage ?? "", /Desktop: quota exceeded/);
   assert.equal(report.rows[0]?.mobile.performance, 91);
   assert.equal(report.rows[0]?.desktop.performance, null);
+});
+
+test("fetchPageSpeedRow fetches mobile and desktop strategies in parallel", async () => {
+  let activeRequests = 0;
+  let maxActiveRequests = 0;
+
+  await fetchPageSpeedRow(
+    { url: "https://alpha.example/", label: "alpha.example" },
+    "test-key",
+    async (input) => {
+      const requestUrl = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+      activeRequests += 1;
+      maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
+
+      await new Promise((resolve) => {
+        setTimeout(resolve, 10);
+      });
+
+      activeRequests -= 1;
+
+      return buildSuccessResponse(requestUrl.searchParams.get("strategy") ?? "mobile");
+    },
+  );
+
+  assert.equal(maxActiveRequests, 2);
+});
+
+test("fetchPageSpeedRow returns a row error when PageSpeed times out", async () => {
+  const report = await fetchPageSpeedRow(
+    { url: "https://alpha.example/", label: "alpha.example" },
+    "test-key",
+    async (_input, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(new DOMException("The operation was aborted.", "AbortError"));
+        });
+      }),
+    undefined,
+    "2026-04-09T12:00:00.000Z",
+    5,
+  );
+
+  assert.equal(report.status, "error");
+  assert.match(report.errorMessage ?? "", /Mobile: PageSpeed mobile request timed out after 1 second/);
+  assert.match(report.errorMessage ?? "", /Desktop: PageSpeed desktop request timed out after 1 second/);
+  assert.equal(report.mobile.performance, null);
+  assert.equal(report.desktop.performance, null);
+});
+
+test("fetchPageSpeedRow returns a row error when the PageSpeed fetch fails", async () => {
+  const report = await fetchPageSpeedRow(
+    { url: "https://alpha.example/", label: "alpha.example" },
+    "test-key",
+    async () => {
+      throw new TypeError("fetch failed");
+    },
+  );
+
+  assert.equal(report.status, "error");
+  assert.match(report.errorMessage ?? "", /Mobile: PageSpeed mobile request failed: fetch failed/);
+  assert.match(report.errorMessage ?? "", /Desktop: PageSpeed desktop request failed: fetch failed/);
 });
 
 test("fetchPageSpeedBulkReport forwards an optional referer header", async () => {

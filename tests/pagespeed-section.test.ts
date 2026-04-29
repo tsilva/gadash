@@ -4,6 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { PageSpeedSection } from "../components/pagespeed-section.tsx";
+import { createPageSpeedPlaceholderRow } from "../lib/pagespeed.ts";
 
 const unlockedGoogleProps = {
   googleAuthState: "loaded" as const,
@@ -51,6 +52,62 @@ test("PageSpeedSection renders Google Analytics sites before the first report ru
   assert.match(markup, /Not run/);
   assert.doesNotMatch(markup, /Open report/);
   assert.doesNotMatch(markup, /Recheck/);
+});
+
+test("PageSpeedSection renders progress while a bulk report is running", () => {
+  const markup = renderToStaticMarkup(
+    createElement(PageSpeedSection, {
+      configuredSites: [
+        { url: "https://alpha.example/", label: "alpha.example" },
+        { url: "https://beta.example/", label: "beta.example" },
+      ],
+      error: null,
+      ...unlockedGoogleProps,
+      isLoading: true,
+      onRun: () => undefined,
+      onRecheck: () => undefined,
+      recheckingUrl: null,
+      report: {
+        fetchedAt: "2026-04-09T12:00:00.000Z",
+        totalSites: 2,
+        rows: [
+          {
+            url: "https://alpha.example/",
+            label: "alpha.example",
+            reportUrl: "https://pagespeed.web.dev/analysis?url=https%3A%2F%2Falpha.example%2F&form_factor=mobile",
+            checkedAt: "2026-04-09T12:00:00.000Z",
+            status: "ok",
+            mobile: {
+              performance: 88,
+              accessibility: 91,
+              bestPractices: 93,
+              seo: 95,
+              firstContentfulPaint: "1.2 s",
+              largestContentfulPaint: "2.0 s",
+              totalBlockingTime: "120 ms",
+              cumulativeLayoutShift: "0.04",
+            },
+            desktop: {
+              performance: 97,
+              accessibility: 91,
+              bestPractices: 93,
+              seo: 95,
+              firstContentfulPaint: "0.6 s",
+              largestContentfulPaint: "1.0 s",
+              totalBlockingTime: "0 ms",
+              cumulativeLayoutShift: "0",
+            },
+          },
+          createPageSpeedPlaceholderRow({ url: "https://beta.example/", label: "beta.example" }),
+        ],
+      },
+    }),
+  );
+
+  assert.match(markup, /Checked 1 of 2 sites • Results appear as each site finishes/);
+  assert.match(markup, /alpha\.example/);
+  assert.match(markup, /beta\.example/);
+  assert.match(markup, /Not run yet/);
 });
 
 test("PageSpeedSection renders section context while locked", () => {
