@@ -6,14 +6,14 @@ import {
   fetchGitHubRepos,
   fetchGitHubViewer,
 } from "@/lib/github-server";
-import {
-  readDashboardSessionFromRequest,
-  readGitHubSessionFromRequest,
-} from "@/lib/server-auth";
+import { readGitHubSessionFromRequest } from "@/lib/server-auth";
 import type {
+  GitHubRepo,
   GitHubMetricsRequest,
   GitHubMetricsResponse,
 } from "@/lib/types";
+
+const INITIAL_LINE_GROWTH_REPO_LIMIT = 12;
 
 type JsonError = { error: string };
 
@@ -103,11 +103,22 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
-export async function POST(request: Request) {
-  if (!readDashboardSessionFromRequest(request)) {
-    return jsonResponse({ error: "Dashboard sign-in required." }, 401);
-  }
+function getInitialLineGrowthRepos(repos: GitHubRepo[]): GitHubRepo[] {
+  return [...repos]
+    .sort((left, right) => {
+      const rightTime = right.pushedAt ? Date.parse(right.pushedAt) : 0;
+      const leftTime = left.pushedAt ? Date.parse(left.pushedAt) : 0;
 
+      if (leftTime !== rightTime) {
+        return rightTime - leftTime;
+      }
+
+      return left.nameWithOwner.localeCompare(right.nameWithOwner);
+    })
+    .slice(0, INITIAL_LINE_GROWTH_REPO_LIMIT);
+}
+
+export async function POST(request: Request) {
   const githubSession = readGitHubSessionFromRequest(request);
 
   if (!githubSession) {
@@ -125,7 +136,7 @@ export async function POST(request: Request) {
     const requestedRepoIds = new Set(requestBody.staleRepos?.map((repo) => repo.id));
     const targetRepos =
       requestBody.staleRepos === undefined
-        ? repos
+        ? getInitialLineGrowthRepos(repos)
         : repos.filter((repo) => requestedRepoIds.has(repo.id));
     const repoLineGrowth = await mapWithConcurrency(targetRepos, 4, (repo) =>
       fetchGitHubRepoLineGrowth(repo, githubSession.accessToken),

@@ -46,7 +46,7 @@ function createCookieHeader(
   return cookies.join("; ");
 }
 
-test("GET /api/github/oauth/start requires dashboard auth and sets an OAuth state cookie", async () => {
+test("GET /api/github/oauth/start sets an OAuth state cookie", async () => {
   await withEnv(
     {
       AUTH_SESSION_SECRET: "test-secret",
@@ -54,11 +54,7 @@ test("GET /api/github/oauth/start requires dashboard auth and sets an OAuth stat
     },
     async () => {
       const response = await oauthStart(
-        new Request("https://gadash.tsilva.eu/api/github/oauth/start", {
-          headers: {
-            cookie: createCookieHeader(),
-          },
-        }),
+        new Request("https://gadash.tsilva.eu/api/github/oauth/start"),
       );
       const location = response.headers.get("location") ?? "";
       const setCookie = response.headers.get("set-cookie") ?? "";
@@ -82,11 +78,7 @@ test("GET /api/github/oauth/start rejects copied placeholder client IDs", async 
     },
     async () => {
       const response = await oauthStart(
-        new Request("https://gadash.tsilva.eu/api/github/oauth/start", {
-          headers: {
-            cookie: createCookieHeader(),
-          },
-        }),
+        new Request("https://gadash.tsilva.eu/api/github/oauth/start"),
       );
       const payload = (await response.json()) as { error: string };
 
@@ -328,6 +320,117 @@ test("POST /api/github/metrics proxies GitHub data without exposing a browser to
         assert.equal(payload.viewer.login, "tsilva");
         assert.deepEqual(payload.repos.map((repo) => repo.nameWithOwner), ["tsilva/gadash"]);
         assert.deepEqual(payload.repoLineGrowth.map((repo) => repo.repoName), ["tsilva/gadash"]);
+      },
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("POST /api/github/metrics limits initial line-growth collection to recent repos", async () => {
+  const originalFetch = global.fetch;
+  const statsRequests: string[] = [];
+  const repos = Array.from({ length: 14 }, (_, index) => {
+    const repoNumber = String(index).padStart(2, "0");
+
+    return {
+      id: index + 1,
+      name: `repo-${repoNumber}`,
+      full_name: `tsilva/repo-${repoNumber}`,
+      html_url: `https://github.com/tsilva/repo-${repoNumber}`,
+      owner: { login: "tsilva" },
+      stargazers_count: 0,
+      private: false,
+      pushed_at: `2026-04-${String(index + 1).padStart(2, "0")}T12:00:00Z`,
+    };
+  });
+
+  try {
+    global.fetch = (async (input: string | URL | Request) => {
+      const requestUrl = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+
+      if (requestUrl.pathname === "/user") {
+        return new Response(
+          JSON.stringify({
+            login: "tsilva",
+            followers: 42,
+            html_url: "https://github.com/tsilva",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (requestUrl.pathname === "/user/repos") {
+        return new Response(JSON.stringify(repos), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      if (requestUrl.pathname === "/graphql") {
+        return new Response(
+          JSON.stringify({
+            data: {
+              viewer: {
+                contributionsCollection: {
+                  contributionCalendar: { weeks: [] },
+                },
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (requestUrl.pathname.startsWith("/repos/tsilva/repo-")) {
+        statsRequests.push(requestUrl.pathname);
+
+        return new Response(JSON.stringify([[1_712_620_800, 10, -4]]), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      throw new Error(`Unexpected fetch to ${requestUrl.href}`);
+    }) as typeof fetch;
+
+    await withEnv(
+      {
+        AUTH_SESSION_SECRET: "test-secret",
+      },
+      async () => {
+        const response = await githubMetrics(
+          new Request("https://gadash.tsilva.eu/api/github/metrics", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              cookie: createCookieHeader([
+                {
+                  name: "gadash.github",
+                  value: createGitHubSessionValue(
+                    "github-access-token",
+                    "read:user repo",
+                    "test-secret",
+                  ),
+                },
+              ]),
+            },
+            body: JSON.stringify({}),
+          }),
+        );
+        const payload = (await response.json()) as {
+          repoLineGrowth: Array<{ repoName: string }>;
+        };
+
+        assert.equal(response.status, 200);
+        assert.equal(payload.repoLineGrowth.length, 12);
+        assert.deepEqual(
+          payload.repoLineGrowth.map((repo) => repo.repoName),
+          repos.slice(2).reverse().map((repo) => repo.full_name),
+        );
+        assert.equal(statsRequests.length, 12);
+        assert.ok(!statsRequests.some((path) => path.includes("repo-00")));
+        assert.ok(!statsRequests.some((path) => path.includes("repo-01")));
       },
     );
   } finally {

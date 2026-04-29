@@ -23,10 +23,15 @@ type GitHubSessionPayload = {
 
 type GoogleTokenInfo = {
   aud?: unknown;
+  audience?: unknown;
   email?: unknown;
   email_verified?: unknown;
   exp?: unknown;
+  expires_in?: unknown;
+  issued_to?: unknown;
   iss?: unknown;
+  scope?: unknown;
+  verified_email?: unknown;
 };
 
 type FetchLike = typeof fetch;
@@ -378,6 +383,61 @@ export async function verifyGoogleIdentityCredential(
 
   if (issuer !== "accounts.google.com" && issuer !== "https://accounts.google.com") {
     throw new Error("Google identity credential issuer is invalid.");
+  }
+
+  if (!getAllowedGoogleEmails().includes(email)) {
+    throw new Error("This Google account is not allowed to access GADash.");
+  }
+
+  return { email };
+}
+
+export async function verifyGoogleAccessToken(
+  accessToken: string,
+  requiredScope?: string,
+  fetchImpl: FetchLike = fetch,
+): Promise<{ email: string }> {
+  const audience = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ?? "";
+
+  if (audience.length === 0) {
+    throw new Error("Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID server configuration.");
+  }
+
+  const response = await fetchImpl(`${GOOGLE_TOKEN_INFO_URL}?access_token=${encodeURIComponent(accessToken)}`, {
+    headers: {
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
+
+  const payload = (await response.json().catch(() => null)) as GoogleTokenInfo | null;
+
+  if (!response.ok || !payload) {
+    throw new Error("Google access token could not be verified.");
+  }
+
+  const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
+  const tokenAudience =
+    typeof payload.audience === "string"
+      ? payload.audience
+      : typeof payload.aud === "string"
+        ? payload.aud
+        : typeof payload.issued_to === "string"
+          ? payload.issued_to
+          : "";
+  const expiresIn = parseNumericTimestamp(payload.expires_in);
+  const scope = typeof payload.scope === "string" ? payload.scope.split(/\s+/) : [];
+
+  if (!email || tokenAudience !== audience || !parseBoolean(payload.verified_email ?? payload.email_verified)) {
+    throw new Error("Google access token is invalid.");
+  }
+
+  if (expiresIn !== null && expiresIn <= 0) {
+    throw new Error("Google access token has expired.");
+  }
+
+  if (requiredScope && !scope.includes(requiredScope)) {
+    throw new Error("Google access token is missing the required scope.");
   }
 
   if (!getAllowedGoogleEmails().includes(email)) {

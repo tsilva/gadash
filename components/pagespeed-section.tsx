@@ -5,6 +5,7 @@ import type {
   PageSpeedRowStatus,
   PageSpeedStrategyMetrics,
 } from "@/lib/types";
+import { GoogleMark } from "@/components/google-mark";
 import { createPageSpeedPlaceholderRow } from "@/lib/pagespeed";
 
 function formatTimestamp(value: string | null): string {
@@ -69,9 +70,13 @@ type PageSpeedVisibleRow = Omit<PageSpeedBulkRow, "status"> & {
 type PageSpeedSectionProps = {
   configuredSites: PageSpeedMonitoredSite[];
   error: string | null;
+  googleConfigError: string | null;
+  googleAuthState: "checking" | "ready" | "signed_out" | "authorizing" | "loading" | "loaded";
+  hasDashboardSession: boolean;
   isLoading: boolean;
   recheckingUrl: string | null;
   report: PageSpeedBulkResponse | null;
+  onGoogleSignIn: () => void;
   onRun: () => void;
   onRecheck: (url: string) => void;
 };
@@ -79,15 +84,20 @@ type PageSpeedSectionProps = {
 export function PageSpeedSection({
   configuredSites,
   error,
+  googleConfigError,
+  googleAuthState,
+  hasDashboardSession,
   isLoading,
   recheckingUrl,
   report,
+  onGoogleSignIn,
   onRun,
   onRecheck,
 }: PageSpeedSectionProps) {
   const visibleRows: PageSpeedVisibleRow[] =
     report?.rows ??
     configuredSites.map((site) => createPageSpeedPlaceholderRow(site));
+  const isGoogleAuthorizing = googleAuthState === "checking" || googleAuthState === "authorizing";
 
   return (
     <section className="integration integration--pagespeed">
@@ -97,24 +107,59 @@ export function PageSpeedSection({
           <h2>Bulk site checks</h2>
         </div>
         <div className="integration__actions">
-          <button className="button" disabled={isLoading} onClick={onRun} type="button">
-            {isLoading ? "Running..." : "Run PageSpeed bulk report"}
-          </button>
+          {hasDashboardSession ? (
+            <button className="button" disabled={isLoading} onClick={onRun} type="button">
+              {isLoading ? "Running..." : "Run PageSpeed bulk report"}
+            </button>
+          ) : (
+            <button
+              className="button button--google"
+              disabled={isGoogleAuthorizing || Boolean(googleConfigError)}
+              onClick={onGoogleSignIn}
+              type="button"
+            >
+              <span className="google-signin">
+                <span className="google-signin__badge">
+                  <GoogleMark />
+                </span>
+                <span className="google-signin__label">
+                  {googleAuthState === "authorizing" ? "Authorizing..." : "Sign in with Google"}
+                </span>
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
       <section className="status-bar">
         <span className={report ? "status-bar__live-dot" : ""}>
-          {isLoading ? "Running" : report ? "Ready" : configuredSites.length > 0 ? "Configured" : "Idle"}
+          {isLoading
+            ? "Running"
+            : report
+              ? "Ready"
+              : hasDashboardSession
+                ? configuredSites.length > 0
+                  ? "Configured"
+                  : "Idle"
+                : "Signed out"}
         </span>
         <span>
           {report
             ? `Checked ${report.totalSites} site${report.totalSites === 1 ? "" : "s"} • Updated ${formatTimestamp(report.fetchedAt)}`
-            : configuredSites.length > 0
-              ? `Monitoring ${configuredSites.length} site${configuredSites.length === 1 ? "" : "s"} • Run to fetch metrics`
-              : "Reads the monitored site list from Vercel env vars on demand"}
+            : hasDashboardSession
+              ? configuredSites.length > 0
+                ? `Monitoring ${configuredSites.length} site${configuredSites.length === 1 ? "" : "s"} • Run to fetch metrics`
+                : "Reads the monitored site list from Vercel env vars on demand"
+              : "Sign in with Google to run server-side PageSpeed checks"}
         </span>
       </section>
+
+      {!hasDashboardSession && googleConfigError ? (
+        <section className="alert alert--error">
+          <h2>Configuration required</h2>
+          <p>{googleConfigError}</p>
+        </section>
+      ) : null}
 
       {error ? (
         <section className="alert alert--warning">

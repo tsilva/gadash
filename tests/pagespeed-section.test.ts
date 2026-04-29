@@ -5,11 +5,19 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { PageSpeedSection } from "../components/pagespeed-section.tsx";
 
+const unlockedGoogleProps = {
+  googleAuthState: "loaded" as const,
+  googleConfigError: null,
+  hasDashboardSession: true,
+  onGoogleSignIn: () => undefined,
+};
+
 test("PageSpeedSection renders a loading button state", () => {
   const markup = renderToStaticMarkup(
     createElement(PageSpeedSection, {
       configuredSites: [],
       error: null,
+      ...unlockedGoogleProps,
       isLoading: true,
       onRun: () => undefined,
       onRecheck: () => undefined,
@@ -27,6 +35,7 @@ test("PageSpeedSection renders configured sites before the first report run", ()
     createElement(PageSpeedSection, {
       configuredSites: [{ url: "https://alpha.example/", label: "alpha.example" }],
       error: null,
+      ...unlockedGoogleProps,
       isLoading: false,
       onRun: () => undefined,
       onRecheck: () => undefined,
@@ -44,11 +53,34 @@ test("PageSpeedSection renders configured sites before the first report run", ()
   assert.doesNotMatch(markup, /Recheck/);
 });
 
+test("PageSpeedSection renders Google sign-in while locked", () => {
+  const markup = renderToStaticMarkup(
+    createElement(PageSpeedSection, {
+      configuredSites: [{ url: "https://alpha.example/", label: "alpha.example" }],
+      error: null,
+      googleAuthState: "signed_out",
+      googleConfigError: null,
+      hasDashboardSession: false,
+      isLoading: false,
+      onGoogleSignIn: () => undefined,
+      onRun: () => undefined,
+      onRecheck: () => undefined,
+      recheckingUrl: null,
+      report: null,
+    }),
+  );
+
+  assert.match(markup, /Sign in with Google/);
+  assert.match(markup, /Sign in with Google to run server-side PageSpeed checks/);
+  assert.doesNotMatch(markup, /Run PageSpeed bulk report/);
+});
+
 test("PageSpeedSection renders table rows and error details", () => {
   const markup = renderToStaticMarkup(
     createElement(PageSpeedSection, {
       configuredSites: [{ url: "https://alpha.example/", label: "alpha.example" }],
       error: "Config missing",
+      ...unlockedGoogleProps,
       isLoading: false,
       onRun: () => undefined,
       onRecheck: () => undefined,
