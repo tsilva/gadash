@@ -662,6 +662,47 @@ button {
   text-decoration: underline;
 }
 
+.github-repos {
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.github-repos__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.github-repos__header h3 {
+  margin: 6px 0 0;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.github-repos__header > span {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.github-repos__table {
+  margin-top: 14px;
+}
+
+.github-repos__empty {
+  margin: 14px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
 .charts-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -5,6 +5,7 @@ import {
   createEmptyGitHubHistory,
   getGitHubGrowthSeries,
   getGitHubHistorySeries,
+  getStarredGitHubRepos,
   mergeGitHubHistory,
   pruneGitHubLineGrowthHistory,
   summarizeGitHubLineGrowth,
@@ -155,6 +156,49 @@ test("summarizeGitHubMetrics and history series reflect stored snapshots", () =>
       isPartial: false,
       historyStartedAt: "2026-03-17",
     },
+  );
+});
+
+test("getStarredGitHubRepos returns starred repos sorted by stars", () => {
+  const starredRepos = getStarredGitHubRepos([
+    {
+      id: "1",
+      name: "unstarred",
+      nameWithOwner: "acme/unstarred",
+      url: "https://github.com/acme/unstarred",
+      ownerLogin: "acme",
+      stargazerCount: 0,
+      isPrivate: false,
+      pushedAt: null,
+    },
+    {
+      id: "2",
+      name: "beta",
+      nameWithOwner: "acme/beta",
+      url: "https://github.com/acme/beta",
+      ownerLogin: "acme",
+      stargazerCount: 3,
+      isPrivate: false,
+      pushedAt: null,
+    },
+    {
+      id: "3",
+      name: "alpha",
+      nameWithOwner: "acme/alpha",
+      url: "https://github.com/acme/alpha",
+      ownerLogin: "acme",
+      stargazerCount: 8,
+      isPrivate: false,
+      pushedAt: null,
+    },
+  ]);
+
+  assert.deepEqual(
+    starredRepos.map((repo) => [repo.nameWithOwner, repo.stargazerCount]),
+    [
+      ["acme/alpha", 8],
+      ["acme/beta", 3],
+    ],
   );
 });
 

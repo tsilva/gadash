@@ -1,6 +1,7 @@
 import type {
   DashboardSummary,
   GitHubHistoryStore,
+  GitHubRepo,
   GitHubRepoLineGrowth,
   GitHubSnapshot,
   GitHubSummary,
@@ -209,6 +210,20 @@ export function summarizeGitHubLineGrowth(
     includedRepoCount,
     excludedRepoCount,
   };
+}
+
+export function getStarredGitHubRepos(repos: GitHubRepo[]): GitHubRepo[] {
+  return repos
+    .filter((repo) => repo.stargazerCount > 0)
+    .sort((left, right) => {
+      const starDifference = right.stargazerCount - left.stargazerCount;
+
+      if (starDifference !== 0) {
+        return starDifference;
+      }
+
+      return left.nameWithOwner.localeCompare(right.nameWithOwner);
+    });
 }
 
 export function summarizeGitHubMetrics(
