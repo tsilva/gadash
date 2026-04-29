@@ -23,7 +23,7 @@ test("HomePageView renders the dashboard before any integration sign-in", () => 
   assert.match(markup, /Requires signing in with GitHub/);
 });
 
-test("HomePageView renders PageSpeed run controls when the Google dashboard session exists", () => {
+test("HomePageView keeps PageSpeed locked when only the Google dashboard session exists", () => {
   const markup = renderToStaticMarkup(
     createElement(HomePageView, {
       hasDashboardSession: true,
@@ -32,6 +32,8 @@ test("HomePageView renders PageSpeed run controls when the Google dashboard sess
   );
 
   assert.match(markup, /Realtime active users/);
-  assert.match(markup, /No Google Analytics web stream URLs were discovered/);
-  assert.match(markup, /Run PageSpeed bulk report/);
+  assert.match(markup, /Bulk site checks/);
+  assert.match(markup, /Requires Google sign-in to discover GA site URLs/);
+  assert.match(markup, /Requires signing in with Google/);
+  assert.doesNotMatch(markup, /Run PageSpeed bulk report/);
 });
