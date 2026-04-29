@@ -23,7 +23,7 @@ GADash is a private Next.js dashboard for checking GA4 realtime activity, GitHub
 GA4, GitHub, and PageSpeed all answer useful operational questions, but each one usually requires a separate tab, login flow, and mental model. Realtime analytics also needs careful token handling when it runs in the browser.
 
 **The Solution**  
-GADash opens directly to the dashboard, with each integration showing its own sign-in action when needed. Google sign-in unlocks the GA4 cards and server-side PageSpeed checks, while GitHub OAuth runs through server route handlers so private tokens stay out of browser JavaScript.
+GADash opens directly to the dashboard, with Google and GitHub sign-in centralized in the top bar. Locked sections still show their headings and non-sensitive structure, while Google sign-in unlocks the GA4 cards and server-side PageSpeed checks, and GitHub OAuth runs through server route handlers so private tokens stay out of browser JavaScript.
 
 **The Result**  
 You get a focused personal command center: live active users, property coverage, GitHub stars/followers/contribution trends, repository line-growth snapshots, and manual bulk Lighthouse checks for configured sites.
@@ -37,7 +37,7 @@ You get a focused personal command center: live active users, property coverage,
 
 ## Features
 
-- **Integration-level sign-in** - opens the dashboard immediately and unlocks Google-backed cards after one Google sign-in.
+- **Provider-level sign-in** - opens the dashboard immediately, keeps locked cards visible, and unlocks Google-backed or GitHub-backed data after one provider sign-in.
 - **Direct GA4 realtime reads** - discovers GA4 properties with the Admin API, then fetches active-user metrics from the browser with `analytics.readonly`.
 - **Partial-result handling** - shows coverage counts and stale snapshot warnings when some properties fail or become inaccessible.
 - **Server-held GitHub OAuth** - exchanges GitHub OAuth codes in route handlers and stores the token in an HttpOnly cookie.
@@ -58,7 +58,7 @@ cp .env.example .env.local
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), then sign in from the Google Analytics, PageSpeed, or GitHub section you want to use.
+Open [http://localhost:3000](http://localhost:3000), then sign in with Google or GitHub from the top bar.
 
 ### Check The App
 
@@ -155,21 +155,21 @@ curl -H "x-sentry-smoke-token: $SENTRY_SMOKE_TEST_TOKEN" https://your-domain.exa
 
 ### Google Analytics
 
-- Click `Sign in with Google` in the Google Analytics section to grant `analytics.readonly`.
+- Click `Sign in with Google` in the top bar to grant `analytics.readonly`.
 - The same Google sign-in also unlocks PageSpeed checks for the current browser session.
 - Use `Refresh` for an immediate GA4 refresh. Automatic polling resumes every 30 seconds.
 - Watch coverage to see how many discovered properties are accessible, inaccessible, or failing.
 
 ### GitHub Metrics
 
-- Sign in with GitHub from the GitHub section.
+- Sign in with GitHub from the top bar.
 - GADash fetches the viewer profile, owned repositories, contribution history, and code-frequency statistics.
 - Stars and follower charts are prospective. They start from the first successful local snapshot in the current browser profile.
 - GitHub trend history is stored in browser-local IndexedDB and is not synced across devices.
 
 ### PageSpeed Checks
 
-- Sign in with Google so GADash can read GA4 web stream URLs through the Admin API.
+- Sign in with Google from the top bar so GADash can read GA4 web stream URLs through the Admin API.
 - Run the bulk report manually from the dashboard.
 - Each row shows mobile and desktop performance, accessibility, best practices, SEO, FCP, LCP, TBT, CLS, and a link to the external `pagespeed.web.dev` report.
 - Results stay in memory for the current page session. There is no history, persistence, CSV export, or scheduled run yet.

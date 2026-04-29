@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   createEmptyGitHubHistory,
+  getGitHubGrowthSeries,
   getGitHubHistorySeries,
   mergeGitHubHistory,
   pruneGitHubLineGrowthHistory,
@@ -155,6 +156,36 @@ test("summarizeGitHubMetrics and history series reflect stored snapshots", () =>
       historyStartedAt: "2026-03-17",
     },
   );
+});
+
+test("getGitHubGrowthSeries returns changes only after multiple snapshots", () => {
+  const initial = createEmptyGitHubHistory("tsilva");
+  const first = mergeGitHubHistory(initial, {
+    fetchedAt: "2026-03-17T08:00:00.000Z",
+    followers: 11,
+    totalStars: 27,
+    repoNames: ["acme/one"],
+    commitActivity: [],
+    repoLineGrowth: [],
+  });
+  const second = mergeGitHubHistory(first, {
+    fetchedAt: "2026-03-18T08:00:00.000Z",
+    followers: 14,
+    totalStars: 29,
+    repoNames: ["acme/one"],
+    commitActivity: [],
+    repoLineGrowth: [],
+  });
+
+  assert.deepEqual(getGitHubGrowthSeries(first, "followers"), []);
+  assert.deepEqual(getGitHubGrowthSeries(second, "followers"), [
+    { date: "2026-03-17", value: 0 },
+    { date: "2026-03-18", value: 3 },
+  ]);
+  assert.deepEqual(getGitHubGrowthSeries(second, "totalStars"), [
+    { date: "2026-03-17", value: 0 },
+    { date: "2026-03-18", value: 2 },
+  ]);
 });
 
 test("pruneGitHubLineGrowthHistory removes uncollected placeholders and deleted repos", () => {

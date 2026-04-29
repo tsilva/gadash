@@ -4,6 +4,7 @@ import Script from "next/script";
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 
 import { GoogleMark } from "@/components/google-mark";
+import { LockedDataRegion } from "@/components/locked-data-region";
 import { PageSpeedSection } from "@/components/pagespeed-section";
 import { discoverDashboardProperties, discoverPageSpeedSites } from "@/lib/admin";
 import {
@@ -24,7 +25,7 @@ import {
 import {
   createEmptyGitHubHistory,
   getEmptySnapshot,
-  getGitHubHistorySeries,
+  getGitHubGrowthSeries,
   mergeGitHubHistory,
   pruneGitHubLineGrowthHistory,
   summarizeGitHubLineGrowth,
@@ -76,6 +77,16 @@ function formatCount(value: number | null): string {
   }
 
   return new Intl.NumberFormat("en-US").format(value);
+}
+
+function formatSignedCount(value: number | null): string {
+  if (value === null) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    signDisplay: "exceptZero",
+  }).format(value);
 }
 
 function formatTimestamp(value: string | null): string {
@@ -178,12 +189,14 @@ function TimeSeriesChart({
   subtitle,
   points,
   emptyMessage,
+  formatValue = formatCount,
   variant = "line",
 }: {
   title: string;
   subtitle: string;
   points: GitHubTimeseriesPoint[];
   emptyMessage: string;
+  formatValue?: (value: number | null) => string;
   variant?: "line" | "bars";
 }) {
   const width = 640;
@@ -276,7 +289,7 @@ function TimeSeriesChart({
       </svg>
       <div className="chart-card__footer">
         <span>{formatDate(points[0]?.date ?? null)}</span>
-        <span>Latest {formatCount(points[points.length - 1]?.value ?? null)}</span>
+        <span>Latest {formatValue(points[points.length - 1]?.value ?? null)}</span>
         <span>{formatDate(points[points.length - 1]?.date ?? null)}</span>
       </div>
     </article>
@@ -610,8 +623,8 @@ export function Dashboard({
       setGitHubViewerUrl(viewer.profileUrl);
       setGitHubCommitActivity(limitPoints(nextHistory.commitActivity, 26));
       setGitHubLineGrowth(limitPoints(summarizeGitHubLineGrowth(nextHistory.repoLineGrowth).points, 26));
-      setGitHubStarHistory(getGitHubHistorySeries(nextHistory, "totalStars"));
-      setGitHubFollowerHistory(getGitHubHistorySeries(nextHistory, "followers"));
+      setGitHubStarHistory(getGitHubGrowthSeries(nextHistory, "totalStars"));
+      setGitHubFollowerHistory(getGitHubGrowthSeries(nextHistory, "followers"));
       setGitHubError(null);
       setGitHubPhase("loaded");
     } catch (error) {
@@ -1078,6 +1091,54 @@ export function Dashboard({
             <h1>GADash</h1>
             <p className="hero__lede">Realtime GA4, GitHub trend lines, and bulk PageSpeed checks</p>
           </div>
+          <div className="hero__actions auth-toolbar" aria-label="Account connections">
+            {googleAccessToken ? (
+              <button className="button button--ghost" onClick={() => void signOutGoogle()} type="button">
+                Sign out Google
+              </button>
+            ) : (
+              <button
+                className="button button--google"
+                disabled={
+                  googleAuthState === "checking" ||
+                  googleAuthState === "authorizing" ||
+                  Boolean(googleConfigError)
+                }
+                onClick={() => requestAccessToken("consent")}
+                type="button"
+              >
+                <span className="google-signin">
+                  <span className="google-signin__badge">
+                    <GoogleMark />
+                  </span>
+                  <span className="google-signin__label">
+                    {googleAuthState === "authorizing" ? "Authorizing..." : "Sign in with Google"}
+                  </span>
+                </span>
+              </button>
+            )}
+            {githubConnected ? (
+              <button className="button button--ghost" onClick={() => void signOutGitHub()} type="button">
+                Sign out GitHub
+              </button>
+            ) : (
+              <button
+                className="button button--github"
+                disabled={githubPhase === "authorizing" || Boolean(githubConfigError)}
+                onClick={startGitHubSignIn}
+                type="button"
+              >
+                <span className="github-signin">
+                  <span className="github-signin__badge">
+                    <GitHubMark />
+                  </span>
+                  <span className="github-signin__label">
+                    {githubPhase === "authorizing" ? "Authorizing..." : "Sign in with GitHub"}
+                  </span>
+                </span>
+              </button>
+            )}
+          </div>
         </header>
 
         <section className="integration">
@@ -1088,35 +1149,10 @@ export function Dashboard({
             </div>
             <div className="integration__actions">
               {googleAccessToken ? (
-                <>
-                  <button className="button" onClick={() => void refreshGoogleDataRef.current()} type="button">
-                    Refresh
-                  </button>
-                  <button className="button button--ghost" onClick={() => void signOutGoogle()} type="button">
-                    Sign out
-                  </button>
-                </>
-              ) : (
-                <button
-                  className="button button--google"
-                  disabled={
-                    googleAuthState === "checking" ||
-                    googleAuthState === "authorizing" ||
-                    Boolean(googleConfigError)
-                  }
-                  onClick={() => requestAccessToken("consent")}
-                  type="button"
-                >
-                  <span className="google-signin">
-                    <span className="google-signin__badge">
-                      <GoogleMark />
-                    </span>
-                    <span className="google-signin__label">
-                      {googleAuthState === "authorizing" ? "Authorizing..." : "Sign in with Google"}
-                    </span>
-                  </span>
+                <button className="button" onClick={() => void refreshGoogleDataRef.current()} type="button">
+                  Refresh
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -1125,7 +1161,11 @@ export function Dashboard({
               {googleAccessToken ? "Live" : "Signed out"}
             </span>
             <span>
-              {googleStale ? "Showing previous snapshot" : `Updated ${formatTimestamp(googleSummary.fetchedAt)}`}
+              {googleAccessToken
+                ? googleStale
+                  ? "Showing previous snapshot"
+                  : `Updated ${formatTimestamp(googleSummary.fetchedAt)}`
+                : "Requires Google sign-in for live metrics"}
             </span>
           </section>
 
@@ -1209,7 +1249,65 @@ export function Dashboard({
                 </div>
               </section>
             </>
-          ) : null}
+          ) : (
+            <LockedDataRegion provider="Google">
+              <section className="summary-grid">
+                <article className="summary-card">
+                  <p className="summary-card__label">Online now proxy</p>
+                  <strong>—</strong>
+                  <span>Active users in the last 0-4 minutes</span>
+                </article>
+                <article className="summary-card">
+                  <p className="summary-card__label">Last 30 minutes</p>
+                  <strong>—</strong>
+                  <span>Steadier executive summary</span>
+                </article>
+                <article className="summary-card">
+                  <p className="summary-card__label">Coverage</p>
+                  <strong>—/{properties.length}</strong>
+                  <span>Property access checked after sign-in</span>
+                </article>
+              </section>
+
+              {properties.length > 0 ? (
+                <section className="properties">
+                  <div className="properties-table" role="region" aria-label="Google Analytics properties">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th scope="col">Status</th>
+                          <th scope="col">Property</th>
+                          <th scope="col">0-4 min</th>
+                          <th scope="col">30 min</th>
+                          <th scope="col">Updated</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {properties.map((property) => (
+                          <tr key={property.id}>
+                            <td className="properties-table__status">
+                              <span className="pill pill--locked">Login required</span>
+                            </td>
+                            <th className="properties-table__property" scope="row">
+                              <span className="properties-table__property-name">{property.label}</span>
+                              <span className="properties-table__property-meta">ID {property.id}</span>
+                            </th>
+                            <td className="properties-table__metric">—</td>
+                            <td className="properties-table__metric">—</td>
+                            <td className="properties-table__timestamp">Not fetched yet</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              ) : (
+                <section className="locked-placeholder">
+                  Google Analytics property names are discovered after Google sign-in.
+                </section>
+              )}
+            </LockedDataRegion>
+          )}
         </section>
 
         <PageSpeedSection
@@ -1219,7 +1317,6 @@ export function Dashboard({
           googleConfigError={googleConfigError}
           hasDashboardSession={dashboardSessionReady}
           isLoading={pageSpeedLoading}
-          onGoogleSignIn={() => requestAccessToken("consent")}
           recheckingUrl={pageSpeedRecheckingUrl}
           onRun={() => void runPageSpeedReport()}
           onRecheck={(url) => void recheckPageSpeedSite(url)}
@@ -1234,31 +1331,10 @@ export function Dashboard({
             </div>
             <div className="integration__actions">
               {githubConnected ? (
-                <>
-                  <button className="button" onClick={() => void refreshGitHubDataRef.current()} type="button">
-                    Refresh
-                  </button>
-                  <button className="button button--ghost" onClick={() => void signOutGitHub()} type="button">
-                    Sign out
-                  </button>
-                </>
-              ) : (
-                <button
-                  className="button button--github"
-                  disabled={githubPhase === "authorizing" || Boolean(githubConfigError)}
-                  onClick={startGitHubSignIn}
-                  type="button"
-                >
-                  <span className="github-signin">
-                    <span className="github-signin__badge">
-                      <GitHubMark />
-                    </span>
-                    <span className="github-signin__label">
-                      {githubPhase === "authorizing" ? "Authorizing..." : "Sign in with GitHub"}
-                    </span>
-                  </span>
+                <button className="button" onClick={() => void refreshGitHubDataRef.current()} type="button">
+                  Refresh
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -1343,21 +1419,80 @@ export function Dashboard({
                   subtitle="Net additions minus deletions across all repos"
                   title="Line growth"
                 />
-                <TimeSeriesChart
-                  emptyMessage="Stars trend fills in over time from this browser profile onward."
-                  points={githubStarHistory}
-                  subtitle="Daily total stars captured locally"
-                  title="Stars"
-                />
-                <TimeSeriesChart
-                  emptyMessage="Follower growth begins on the first local snapshot."
-                  points={githubFollowerHistory}
-                  subtitle="Daily follower counts captured locally"
-                  title="Followers"
-                />
+                {githubStarHistory.length > 0 ? (
+                  <TimeSeriesChart
+                    emptyMessage="Star growth appears after two local GitHub snapshots."
+                    formatValue={formatSignedCount}
+                    points={githubStarHistory}
+                    subtitle="Change in total stars since tracking began"
+                    title="Star growth"
+                  />
+                ) : null}
+                {githubFollowerHistory.length > 0 ? (
+                  <TimeSeriesChart
+                    emptyMessage="Follower growth appears after two local GitHub snapshots."
+                    formatValue={formatSignedCount}
+                    points={githubFollowerHistory}
+                    subtitle="Change in followers since tracking began"
+                    title="Follower growth"
+                  />
+                ) : null}
               </section>
             </>
-          ) : null}
+          ) : githubConnected ? null : (
+            <LockedDataRegion provider="GitHub">
+              <section className="summary-grid summary-grid--4">
+                <article className="summary-card">
+                  <p className="summary-card__label">Repos included</p>
+                  <strong>—</strong>
+                  <span>Repository access checked after sign-in</span>
+                </article>
+                <article className="summary-card">
+                  <p className="summary-card__label">Stars</p>
+                  <strong>—</strong>
+                  <span>Prospective local trend</span>
+                </article>
+                <article className="summary-card">
+                  <p className="summary-card__label">Followers</p>
+                  <strong>—</strong>
+                  <span>Tracked after first snapshot</span>
+                </article>
+                <article className="summary-card">
+                  <p className="summary-card__label">Line-growth coverage</p>
+                  <strong>—/—</strong>
+                  <span>Repository stats checked after sign-in</span>
+                </article>
+              </section>
+
+              <section className="charts-grid">
+                <TimeSeriesChart
+                  emptyMessage="Commit activity appears after the first successful GitHub sync."
+                  points={[]}
+                  subtitle="Weekly contribution bars with a 4-week trend line"
+                  title="Commit activity"
+                  variant="bars"
+                />
+                <TimeSeriesChart
+                  emptyMessage="GitHub has not returned any line-growth stats yet."
+                  points={[]}
+                  subtitle="Net additions minus deletions across all repos"
+                  title="Line growth"
+                />
+                <TimeSeriesChart
+                  emptyMessage="Star growth appears after two local GitHub snapshots."
+                  points={[]}
+                  subtitle="Change in total stars since tracking began"
+                  title="Star growth"
+                />
+                <TimeSeriesChart
+                  emptyMessage="Follower growth appears after two local GitHub snapshots."
+                  points={[]}
+                  subtitle="Change in followers since tracking began"
+                  title="Follower growth"
+                />
+              </section>
+            </LockedDataRegion>
+          )}
         </section>
       </main>
     </>

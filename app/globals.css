@@ -79,6 +79,12 @@ button {
   align-items: center;
 }
 
+.auth-toolbar {
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .integration {
   margin-top: 28px;
   padding: 24px;
@@ -99,11 +105,6 @@ button {
   background:
     radial-gradient(circle at top right, rgba(250, 204, 21, 0.08), transparent 34%),
     var(--surface);
-}
-
-.integration--locked {
-  display: flex;
-  justify-content: flex-end;
 }
 
 .integration--auth {
@@ -378,6 +379,70 @@ button {
 
 .alert--error {
   border-color: rgba(251, 113, 133, 0.25);
+}
+
+/* ── Locked data ── */
+
+.locked-region {
+  position: relative;
+  margin-top: 24px;
+  border-radius: var(--radius-lg);
+}
+
+.locked-region > .summary-grid,
+.locked-region > .properties,
+.locked-region > .charts-grid,
+.locked-region > .locked-placeholder,
+.locked-region__content > .summary-grid,
+.locked-region__content > .properties,
+.locked-region__content > .charts-grid,
+.locked-region__content > .locked-placeholder {
+  margin-top: 0;
+}
+
+.locked-region__content {
+  pointer-events: none;
+  user-select: none;
+  filter: blur(1.5px);
+  opacity: 0.42;
+}
+
+.locked-region__overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  border-radius: inherit;
+  background: rgba(9, 9, 11, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.locked-region__overlay span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(24, 24, 27, 0.94);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.locked-placeholder {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  text-align: center;
 }
 
 /* ── Summary cards ── */
@@ -746,6 +811,10 @@ button {
   color: var(--danger);
 }
 
+.pill--locked {
+  color: var(--text-secondary);
+}
+
 /* ── Responsive ── */
 
 @media (max-width: 768px) {
@@ -765,6 +834,14 @@ button {
   .integration__header,
   .integration__actions {
     align-items: stretch;
+  }
+
+  .auth-toolbar {
+    width: 100%;
+  }
+
+  .auth-toolbar .button {
+    width: 100%;
   }
 
   .status-bar,
