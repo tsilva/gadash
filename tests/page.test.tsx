@@ -14,9 +14,13 @@ test("HomePageView renders the dashboard before any integration sign-in", () => 
   );
 
   assert.match(markup, /Realtime active users/);
-  assert.doesNotMatch(markup, /Bulk site checks/);
+  assert.match(markup, /Bulk site checks/);
+  assert.match(markup, /Account activity/);
   assert.doesNotMatch(markup, /alpha\.example/);
   assert.match(markup, /Sign in with Google/);
+  assert.match(markup, /Sign in with GitHub/);
+  assert.match(markup, /Requires signing in with Google/);
+  assert.match(markup, /Requires signing in with GitHub/);
 });
 
 test("HomePageView renders PageSpeed run controls when the Google dashboard session exists", () => {

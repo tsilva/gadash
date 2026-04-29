@@ -162,6 +162,22 @@ export function getGitHubHistorySeries(
   }));
 }
 
+export function getGitHubGrowthSeries(
+  history: GitHubHistoryStore,
+  metric: "followers" | "totalStars",
+): GitHubTimeseriesPoint[] {
+  const firstValue = history.snapshots[0]?.[metric];
+
+  if (history.snapshots.length < 2 || typeof firstValue !== "number") {
+    return [];
+  }
+
+  return history.snapshots.map((snapshot) => ({
+    date: snapshot.date,
+    value: snapshot[metric] - firstValue,
+  }));
+}
+
 export function summarizeGitHubLineGrowth(
   repoLineGrowth: GitHubRepoLineGrowth[],
 ): {
