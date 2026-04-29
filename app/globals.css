@@ -651,6 +651,16 @@ button {
   stroke-dasharray: 6 8;
 }
 
+.chart-card__line--flat {
+  opacity: 0.55;
+}
+
+.chart-card__point {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 4;
+}
+
 .chart-card__bar {
   fill: rgba(94, 234, 212, 0.32);
 }
@@ -672,6 +682,23 @@ button {
   color: var(--text-secondary);
   font-size: 0.85rem;
   line-height: 1.6;
+}
+
+.chart-card__placeholder {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  margin-top: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.chart-card__placeholder span {
+  max-width: 42ch;
 }
 
 /* ── Status pills (dot style) ── */

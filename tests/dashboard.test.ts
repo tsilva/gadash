@@ -5,9 +5,11 @@ import {
   createEmptyGitHubHistory,
   getGitHubHistorySeries,
   mergeGitHubHistory,
+  pruneGitHubLineGrowthHistory,
   summarizeGitHubLineGrowth,
   summarizeGitHubMetrics,
   summarizeSnapshots,
+  shouldRefreshGitHubLineGrowth,
 } from "../lib/dashboard.ts";
 
 test("summarizeSnapshots counts only accessible properties in totals", () => {
@@ -152,5 +154,57 @@ test("summarizeGitHubMetrics and history series reflect stored snapshots", () =>
       isPartial: false,
       historyStartedAt: "2026-03-17",
     },
+  );
+});
+
+test("pruneGitHubLineGrowthHistory removes uncollected placeholders and deleted repos", () => {
+  const history = {
+    ...createEmptyGitHubHistory("tsilva"),
+    repoLineGrowth: [
+      {
+        repoId: "1",
+        repoName: "tsilva/active",
+        fetchedOn: "2026-04-29T12:00:00.000Z",
+        weeks: [{ date: "2026-04-27", value: 10 }],
+        status: "ok" as const,
+      },
+      {
+        repoId: "2",
+        repoName: "tsilva/pending",
+        fetchedOn: "2026-04-29T12:00:00.000Z",
+        weeks: [],
+        status: "error" as const,
+        errorMessage: "Repository statistics have not been collected yet.",
+      },
+      {
+        repoId: "3",
+        repoName: "tsilva/deleted",
+        fetchedOn: "2026-04-29T12:00:00.000Z",
+        weeks: [{ date: "2026-04-27", value: 3 }],
+        status: "ok" as const,
+      },
+    ],
+  };
+
+  assert.deepEqual(
+    pruneGitHubLineGrowthHistory(history, new Set(["1"])).repoLineGrowth.map((entry) => entry.repoName),
+    ["tsilva/active"],
+  );
+});
+
+test("shouldRefreshGitHubLineGrowth retries generating stats on the same day", () => {
+  assert.equal(
+    shouldRefreshGitHubLineGrowth(
+      {
+        repoId: "1",
+        repoName: "tsilva/gadash",
+        fetchedOn: "2026-04-29T12:00:00.000Z",
+        weeks: [],
+        status: "error",
+        errorMessage: "GitHub is still generating repository statistics. Try Refresh again later.",
+      },
+      "2026-04-29",
+    ),
+    true,
   );
 });
