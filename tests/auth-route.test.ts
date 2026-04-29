@@ -71,6 +71,49 @@ test("POST /api/auth/google/session creates a cookie for the allowed Google acco
   }
 });
 
+test("POST /api/auth/google/session accepts an allowed Google access token", async () => {
+  const originalFetch = global.fetch;
+
+  try {
+    global.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          audience: "test-client-id.apps.googleusercontent.com",
+          email: "eng.tiago.silva@gmail.com",
+          verified_email: true,
+          expires_in: 300,
+          scope: "https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/userinfo.email",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )) as typeof fetch;
+
+    await withEnv(
+      {
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: "test-client-id.apps.googleusercontent.com",
+        AUTH_SESSION_SECRET: "test-secret",
+        ALLOWED_GOOGLE_EMAILS: "eng.tiago.silva@gmail.com",
+      },
+      async () => {
+        const response = await createGoogleSession(
+          new Request("https://gadash.tsilva.eu/api/auth/google/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ accessToken: "google-access-token" }),
+          }),
+        );
+        const payload = (await response.json()) as { ok: boolean; email: string };
+
+        assert.equal(response.status, 200);
+        assert.equal(payload.ok, true);
+        assert.equal(payload.email, "eng.tiago.silva@gmail.com");
+        assert.match(response.headers.get("set-cookie") ?? "", /gadash\.auth=/);
+      },
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test("POST /api/auth/google/session allows local sign-in without AUTH_SESSION_SECRET outside production", async () => {
   const originalFetch = global.fetch;
 
@@ -294,11 +337,11 @@ test("POST /api/auth/google/session still requires AUTH_SESSION_SECRET in produc
   }
 });
 
-test("POST /api/auth/sign-out clears the dashboard and GitHub session cookies", async () => {
+test("POST /api/auth/sign-out clears only the Google dashboard session cookie", async () => {
   const response = await signOut();
   const setCookie = response.headers.get("set-cookie") ?? "";
 
   assert.equal(response.status, 200);
   assert.match(setCookie, /gadash\.auth=;/);
-  assert.match(setCookie, /gadash\.github=;/);
+  assert.doesNotMatch(setCookie, /gadash\.github=;/);
 });

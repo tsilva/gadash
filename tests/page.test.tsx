@@ -5,25 +5,25 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { HomePageView } from "../app/page.tsx";
 
-test("HomePageView hides dashboard content and monitored sites when unauthenticated", () => {
+test("HomePageView renders the dashboard before any integration sign-in", () => {
   const markup = renderToStaticMarkup(
     createElement(HomePageView, {
-      isAuthenticated: false,
+      hasDashboardSession: false,
       nonce: "test-nonce",
       configuredPageSpeedSites: [{ url: "https://alpha.example/", label: "alpha.example" }],
     }),
   );
 
-  assert.match(markup, /Sign in to open the dashboard/);
-  assert.doesNotMatch(markup, /Realtime active users/);
-  assert.doesNotMatch(markup, /alpha\.example/);
+  assert.match(markup, /Realtime active users/);
+  assert.match(markup, /alpha\.example/);
+  assert.match(markup, /Sign in with Google/);
   assert.match(markup, /nonce="test-nonce"/);
 });
 
-test("HomePageView renders the dashboard and configured sites when authenticated", () => {
+test("HomePageView renders PageSpeed run controls when the Google dashboard session exists", () => {
   const markup = renderToStaticMarkup(
     createElement(HomePageView, {
-      isAuthenticated: true,
+      hasDashboardSession: true,
       nonce: "test-nonce",
       configuredPageSpeedSites: [{ url: "https://alpha.example/", label: "alpha.example" }],
     }),
