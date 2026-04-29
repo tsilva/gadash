@@ -99,6 +99,30 @@ export function PageSpeedSection({
     configuredSites.map((site) => createPageSpeedPlaceholderRow(site));
   const isGoogleAuthorizing = googleAuthState === "checking" || googleAuthState === "authorizing";
 
+  if (!hasDashboardSession) {
+    return (
+      <section className="integration integration--pagespeed integration--locked">
+        <div className="integration__actions integration__actions--solo">
+          <button
+            className="button button--google"
+            disabled={isGoogleAuthorizing || Boolean(googleConfigError)}
+            onClick={onGoogleSignIn}
+            type="button"
+          >
+            <span className="google-signin">
+              <span className="google-signin__badge">
+                <GoogleMark />
+              </span>
+              <span className="google-signin__label">
+                {googleAuthState === "authorizing" ? "Authorizing..." : "Sign in with Google"}
+              </span>
+            </span>
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="integration integration--pagespeed">
       <div className="integration__header">
@@ -107,27 +131,9 @@ export function PageSpeedSection({
           <h2>Bulk site checks</h2>
         </div>
         <div className="integration__actions">
-          {hasDashboardSession ? (
-            <button className="button" disabled={isLoading} onClick={onRun} type="button">
-              {isLoading ? "Running..." : "Run PageSpeed bulk report"}
-            </button>
-          ) : (
-            <button
-              className="button button--google"
-              disabled={isGoogleAuthorizing || Boolean(googleConfigError)}
-              onClick={onGoogleSignIn}
-              type="button"
-            >
-              <span className="google-signin">
-                <span className="google-signin__badge">
-                  <GoogleMark />
-                </span>
-                <span className="google-signin__label">
-                  {googleAuthState === "authorizing" ? "Authorizing..." : "Sign in with Google"}
-                </span>
-              </span>
-            </button>
-          )}
+          <button className="button" disabled={isLoading || configuredSites.length === 0} onClick={onRun} type="button">
+            {isLoading ? "Running..." : "Run PageSpeed bulk report"}
+          </button>
         </div>
       </div>
 
@@ -137,24 +143,20 @@ export function PageSpeedSection({
             ? "Running"
             : report
               ? "Ready"
-              : hasDashboardSession
-                ? configuredSites.length > 0
-                  ? "Configured"
-                  : "Idle"
-                : "Signed out"}
+              : configuredSites.length > 0
+                ? "Ready"
+                : "Idle"}
         </span>
         <span>
           {report
             ? `Checked ${report.totalSites} site${report.totalSites === 1 ? "" : "s"} • Updated ${formatTimestamp(report.fetchedAt)}`
-            : hasDashboardSession
-              ? configuredSites.length > 0
-                ? `Monitoring ${configuredSites.length} site${configuredSites.length === 1 ? "" : "s"} • Run to fetch metrics`
-                : "Reads the monitored site list from Vercel env vars on demand"
-              : "Sign in with Google to run server-side PageSpeed checks"}
+            : configuredSites.length > 0
+              ? `Monitoring ${configuredSites.length} GA site${configuredSites.length === 1 ? "" : "s"} • Run to fetch metrics`
+              : "No Google Analytics web stream URLs were discovered"}
         </span>
       </section>
 
-      {!hasDashboardSession && googleConfigError ? (
+      {googleConfigError ? (
         <section className="alert alert--error">
           <h2>Configuration required</h2>
           <p>{googleConfigError}</p>

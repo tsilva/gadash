@@ -43,7 +43,6 @@ test("POST returns a config error when the API key is missing", async () => {
   await withEnv(
     {
       PAGESPEED_API_KEY: undefined,
-      PAGESPEED_MONITORED_URLS: "https://alpha.example",
       AUTH_SESSION_SECRET: "test-secret",
     },
     async () => {
@@ -56,19 +55,18 @@ test("POST returns a config error when the API key is missing", async () => {
   );
 });
 
-test("POST returns a config error when the monitored URLs are invalid", async () => {
+test("POST requires Google Analytics web stream sites", async () => {
   await withEnv(
     {
       PAGESPEED_API_KEY: "test-key",
-      PAGESPEED_MONITORED_URLS: "http://alpha.example",
       AUTH_SESSION_SECRET: "test-secret",
     },
     async () => {
       const response = await POST(createAuthedRequest("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
       const payload = (await response.json()) as { error: string };
 
-      assert.equal(response.status, 500);
-      assert.match(payload.error, /PAGESPEED_MONITORED_URLS contains invalid site URL/);
+      assert.equal(response.status, 400);
+      assert.equal(payload.error, "PageSpeed sites must be provided from Google Analytics web streams.");
     },
   );
 });
@@ -113,11 +111,21 @@ test("POST returns partial success rows and report links", async () => {
     await withEnv(
       {
         PAGESPEED_API_KEY: "test-key",
-        PAGESPEED_MONITORED_URLS: "https://alpha.example\nhttps://beta.example",
         AUTH_SESSION_SECRET: "test-secret",
       },
       async () => {
-        const response = await POST(createAuthedRequest("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
+        const response = await POST(
+          createAuthedRequest("https://gadash.tsilva.eu/api/pagespeed/bulk", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sites: [
+                { url: "https://alpha.example/", label: "alpha.example" },
+                { url: "https://beta.example/", label: "beta.example" },
+              ],
+            }),
+          }),
+        );
         const payload = (await response.json()) as {
           totalSites: number;
           rows: Array<{ status: string; reportUrl: string; checkedAt: string | null; errorMessage?: string }>;
@@ -173,11 +181,18 @@ test("POST forwards the request origin as the PageSpeed referer", async () => {
     await withEnv(
       {
         PAGESPEED_API_KEY: "test-key",
-        PAGESPEED_MONITORED_URLS: "https://alpha.example",
         AUTH_SESSION_SECRET: "test-secret",
       },
       async () => {
-        const response = await POST(createAuthedRequest("https://gadash.tsilva.eu/api/pagespeed/bulk", { method: "POST" }));
+        const response = await POST(
+          createAuthedRequest("https://gadash.tsilva.eu/api/pagespeed/bulk", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sites: [{ url: "https://alpha.example/", label: "alpha.example" }],
+            }),
+          }),
+        );
 
         assert.equal(response.status, 200);
         assert.deepEqual(seenReferers, ["https://gadash.tsilva.eu/", "https://gadash.tsilva.eu/"]);
@@ -188,7 +203,7 @@ test("POST forwards the request origin as the PageSpeed referer", async () => {
   }
 });
 
-test("POST can refresh a single configured site", async () => {
+test("POST can refresh a single submitted site", async () => {
   const originalFetch = global.fetch;
   const seenUrls: string[] = [];
 
@@ -221,7 +236,6 @@ test("POST can refresh a single configured site", async () => {
     await withEnv(
       {
         PAGESPEED_API_KEY: "test-key",
-        PAGESPEED_MONITORED_URLS: "https://alpha.example\nhttps://beta.example",
         AUTH_SESSION_SECRET: "test-secret",
       },
       async () => {
@@ -229,7 +243,13 @@ test("POST can refresh a single configured site", async () => {
           createAuthedRequest("https://gadash.tsilva.eu/api/pagespeed/bulk", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url: "https://beta.example/" }),
+            body: JSON.stringify({
+              url: "https://beta.example/",
+              sites: [
+                { url: "https://alpha.example/", label: "alpha.example" },
+                { url: "https://beta.example/", label: "beta.example" },
+              ],
+            }),
           }),
         );
         const payload = (await response.json()) as {
@@ -248,11 +268,10 @@ test("POST can refresh a single configured site", async () => {
   }
 });
 
-test("POST rejects row refreshes for unconfigured sites", async () => {
+test("POST rejects row refreshes for unsubmitted sites", async () => {
   await withEnv(
     {
       PAGESPEED_API_KEY: "test-key",
-      PAGESPEED_MONITORED_URLS: "https://alpha.example",
       AUTH_SESSION_SECRET: "test-secret",
     },
     async () => {
@@ -260,13 +279,16 @@ test("POST rejects row refreshes for unconfigured sites", async () => {
         createAuthedRequest("https://gadash.tsilva.eu/api/pagespeed/bulk", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: "https://beta.example/" }),
+          body: JSON.stringify({
+            url: "https://beta.example/",
+            sites: [{ url: "https://alpha.example/", label: "alpha.example" }],
+          }),
         }),
       );
       const payload = (await response.json()) as { error: string };
 
       assert.equal(response.status, 400);
-      assert.equal(payload.error, "Requested PageSpeed site is not in PAGESPEED_MONITORED_URLS.");
+      assert.equal(payload.error, "Requested PageSpeed site is not in the Google Analytics web stream list.");
     },
   );
 });
@@ -275,7 +297,6 @@ test("POST rejects unauthenticated PageSpeed requests", async () => {
   await withEnv(
     {
       PAGESPEED_API_KEY: "test-key",
-      PAGESPEED_MONITORED_URLS: "https://alpha.example",
       AUTH_SESSION_SECRET: "test-secret",
     },
     async () => {
