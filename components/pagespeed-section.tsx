@@ -97,6 +97,7 @@ export function PageSpeedSection({
   const visibleRows: PageSpeedVisibleRow[] =
     report?.rows ??
     configuredSites.map((site) => createPageSpeedPlaceholderRow(site));
+  const completedRowCount = visibleRows.filter((row) => row.checkedAt).length;
   const isLocked = !hasDashboardSession || !hasGoogleAccessToken;
   const resultsContent =
     visibleRows.length > 0 ? (
@@ -226,8 +227,12 @@ export function PageSpeedSection({
         <span>
           {isLocked
             ? "Requires Google sign-in to discover GA site URLs"
+            : report && isLoading && recheckingUrl
+            ? "Rechecking 1 site • Results update when it finishes"
+            : report && isLoading
+            ? `Checked ${completedRowCount} of ${report.totalSites} site${report.totalSites === 1 ? "" : "s"} • Results appear as each site finishes`
             : report
-            ? `Checked ${report.totalSites} site${report.totalSites === 1 ? "" : "s"} • Updated ${formatTimestamp(report.fetchedAt)}`
+            ? `Checked ${completedRowCount} of ${report.totalSites} site${report.totalSites === 1 ? "" : "s"} • Updated ${formatTimestamp(report.fetchedAt)}`
             : configuredSites.length > 0
               ? `Monitoring ${configuredSites.length} GA site${configuredSites.length === 1 ? "" : "s"} • Run to fetch metrics`
               : "No Google Analytics web stream URLs were discovered"}

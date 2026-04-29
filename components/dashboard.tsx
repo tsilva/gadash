@@ -36,7 +36,7 @@ import {
 import { fetchPropertyRealtimeSnapshot } from "@/lib/ga4";
 import { clearGitHubHistory, loadGitHubHistory, saveGitHubHistory } from "@/lib/github-history";
 import { aggregateWeeklyContributions } from "@/lib/github";
-import { mergePageSpeedReportRow } from "@/lib/pagespeed";
+import { createPageSpeedPlaceholderRow, mergePageSpeedReportRow } from "@/lib/pagespeed";
 import type {
   DashboardProperty,
   GitHubMetricsRequest,
@@ -55,6 +55,7 @@ const GOOGLE_SCOPE = `${GOOGLE_ANALYTICS_SCOPE} https://www.googleapis.com/auth/
 const GOOGLE_POLL_INTERVAL_MS = 30_000;
 const GITHUB_METRICS_TIMEOUT_MS = 30_000;
 const GITHUB_AUTH_MESSAGE_TYPE = "gadash:github-auth";
+const PAGE_SPEED_BULK_CONCURRENCY = 3;
 
 type GoogleAuthState =
   | "checking"
@@ -361,6 +362,7 @@ export function Dashboard({
   const dashboardSessionReadyRef = useRef(hasDashboardSession);
   const lastPromptRef = useRef<GoogleTokenRequest["prompt"] | undefined>(undefined);
   const silentRestoreAttemptedRef = useRef(false);
+  const pageSpeedRunIdRef = useRef(0);
 
   const googleConfigError = getGoogleConfigError();
   const githubConfigError = getGitHubConfigError();
@@ -451,6 +453,7 @@ export function Dashboard({
       clearStoredGoogleAuth(window.sessionStorage);
       setProperties(configuredDashboardProperties);
       setSnapshots(createLoadingState(configuredDashboardProperties));
+      pageSpeedRunIdRef.current += 1;
       setPageSpeedSites([]);
       setPageSpeedReport(null);
       setPageSpeedError(null);
@@ -798,6 +801,7 @@ export function Dashboard({
         }
 
         if (discoveredProperties.length === 0) {
+          pageSpeedRunIdRef.current += 1;
           setProperties([]);
           setSnapshots([]);
           setPageSpeedSites([]);
@@ -812,6 +816,7 @@ export function Dashboard({
         propertiesRef.current = discoveredProperties;
         setProperties(discoveredProperties);
         setSnapshots(createLoadingState(discoveredProperties));
+        pageSpeedRunIdRef.current += 1;
         setPageSpeedSites([]);
         setPageSpeedReport(null);
         setPageSpeedError(null);
@@ -841,6 +846,7 @@ export function Dashboard({
 
         void refreshGoogleDataRef.current();
       } catch (error) {
+        pageSpeedRunIdRef.current += 1;
         setProperties(configuredDashboardProperties);
         setSnapshots(createLoadingState(configuredDashboardProperties));
         setPageSpeedSites([]);
@@ -934,6 +940,7 @@ export function Dashboard({
 
     clearStoredGoogleAuth(window.sessionStorage);
     clearSavedGoogleSession(window.localStorage);
+    pageSpeedRunIdRef.current += 1;
     setPageSpeedReport(null);
     setPageSpeedError(null);
     setPageSpeedRecheckingUrl(null);
@@ -985,15 +992,25 @@ export function Dashboard({
     setPageSpeedLoading(true);
     setPageSpeedError(null);
     setPageSpeedRecheckingUrl(url ?? null);
+    const runId = pageSpeedRunIdRef.current + 1;
+    pageSpeedRunIdRef.current = runId;
 
-    try {
+    if (!url) {
+      setPageSpeedReport({
+        fetchedAt: new Date().toISOString(),
+        totalSites: pageSpeedSites.length,
+        rows: pageSpeedSites.map((site) => createPageSpeedPlaceholderRow(site)),
+      });
+    }
+
+    async function fetchSinglePageSpeedReport(siteUrl: string): Promise<PageSpeedBulkResponse> {
       const response = await fetch("/api/pagespeed/bulk", {
         method: "POST",
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ sites: pageSpeedSites, ...(url ? { url } : {}) }),
+        body: JSON.stringify({ sites: pageSpeedSites, url: siteUrl }),
         cache: "no-store",
       });
       const payload = (await response.json().catch(() => null)) as
@@ -1010,33 +1027,83 @@ export function Dashboard({
         throw new Error(
           payload && "error" in payload && typeof payload.error === "string"
             ? payload.error
-            : `PageSpeed bulk report failed with status ${response.status}.`,
+            : `PageSpeed report failed with status ${response.status}.`,
         );
       }
 
-      startTransition(() => {
-        const nextReport = payload as PageSpeedBulkResponse;
+      return payload as PageSpeedBulkResponse;
+    }
 
-        if (url) {
-          const refreshedRow = nextReport.rows[0];
+    try {
+      if (url) {
+        const nextReport = await fetchSinglePageSpeedReport(url);
+        const refreshedRow = nextReport.rows[0];
 
-          if (!refreshedRow) {
-            return;
-          }
-
-          setPageSpeedReport((currentReport) =>
-            mergePageSpeedReportRow(currentReport, refreshedRow, pageSpeedSites, nextReport.fetchedAt),
-          );
+        if (!refreshedRow || pageSpeedRunIdRef.current !== runId) {
           return;
         }
 
-        setPageSpeedReport(nextReport);
-      });
+        startTransition(() => {
+          setPageSpeedReport((currentReport) =>
+            mergePageSpeedReportRow(currentReport, refreshedRow, pageSpeedSites, nextReport.fetchedAt),
+          );
+        });
+        return;
+      }
+
+      let nextSiteIndex = 0;
+      let firstErrorMessage: string | null = null;
+
+      async function worker() {
+        while (nextSiteIndex < pageSpeedSites.length && pageSpeedRunIdRef.current === runId) {
+          const currentSite = pageSpeedSites[nextSiteIndex];
+          nextSiteIndex += 1;
+
+          if (!currentSite) {
+            continue;
+          }
+
+          try {
+            const nextReport = await fetchSinglePageSpeedReport(currentSite.url);
+            const completedRow = nextReport.rows[0];
+
+            if (!completedRow || pageSpeedRunIdRef.current !== runId) {
+              continue;
+            }
+
+            startTransition(() => {
+              setPageSpeedReport((currentReport) =>
+                mergePageSpeedReportRow(currentReport, completedRow, pageSpeedSites, nextReport.fetchedAt),
+              );
+            });
+          } catch (error) {
+            if (pageSpeedRunIdRef.current !== runId) {
+              continue;
+            }
+
+            const message = error instanceof Error ? error.message : "PageSpeed bulk report failed.";
+
+            if (!firstErrorMessage) {
+              firstErrorMessage = message;
+              setPageSpeedError(message);
+            }
+          }
+        }
+      }
+
+      await Promise.all(
+        Array.from(
+          { length: Math.min(PAGE_SPEED_BULK_CONCURRENCY, pageSpeedSites.length) },
+          () => worker(),
+        ),
+      );
     } catch (error) {
       setPageSpeedError(error instanceof Error ? error.message : "PageSpeed bulk report failed.");
     } finally {
-      setPageSpeedRecheckingUrl(null);
-      setPageSpeedLoading(false);
+      if (pageSpeedRunIdRef.current === runId) {
+        setPageSpeedRecheckingUrl(null);
+        setPageSpeedLoading(false);
+      }
     }
   }
 
