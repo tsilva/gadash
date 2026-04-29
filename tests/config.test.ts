@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { parseAuthorizedOrigins, parseDashboardProperties } from "../lib/config.ts";
+import { normalizeEnvValue } from "../lib/env.ts";
 
 test("parseDashboardProperties sorts by sortOrder and label", () => {
   const parsed = parseDashboardProperties(
@@ -34,4 +35,10 @@ test("parseAuthorizedOrigins trims and removes empty values", () => {
     parseAuthorizedOrigins(" http://localhost:3000, , https://dash.example.com "),
     ["http://localhost:3000", "https://dash.example.com"],
   );
+});
+
+test("normalizeEnvValue treats copied GitHub placeholder values as missing", () => {
+  assert.equal(normalizeEnvValue("your-github-oauth-client-id"), "");
+  assert.equal(normalizeEnvValue(" your-github-oauth-client-secret "), "");
+  assert.equal(normalizeEnvValue("github-client-id"), "github-client-id");
 });

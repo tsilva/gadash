@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
+import { normalizeEnvValue } from "@/lib/env";
 import { readDashboardSessionFromRequest } from "@/lib/server-auth";
 
 const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
@@ -9,8 +10,8 @@ const STATE_COOKIE_NAME = "gadash.github-oauth-state";
 
 function getGitHubClientId(): string {
   return (
-    process.env.GITHUB_CLIENT_ID?.trim() ??
-    process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID?.trim() ??
+    normalizeEnvValue(process.env.GITHUB_CLIENT_ID) ||
+    normalizeEnvValue(process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) ||
     ""
   );
 }
