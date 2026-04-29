@@ -7,6 +7,7 @@ import type {
 
 const PAGESPEED_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
 const CATEGORY_KEYS = ["performance", "accessibility", "best-practices", "seo"] as const;
+const PAGESPEED_STRATEGY_TIMEOUT_MS = 75_000;
 
 type PageSpeedApiCategory = {
   score?: number | null;
@@ -118,12 +119,27 @@ function buildPageSpeedErrorMessage(status: number, response: PageSpeedApiRespon
   return response?.error?.message ?? `PageSpeed request failed with status ${status}.`;
 }
 
+function buildFetchFailureMessage(error: unknown, strategy: "mobile" | "desktop", timeoutMs: number): string {
+  if (error instanceof DOMException && error.name === "AbortError") {
+    const timeoutSeconds = Math.ceil(timeoutMs / 1000);
+
+    return `PageSpeed ${strategy} request timed out after ${timeoutSeconds} second${timeoutSeconds === 1 ? "" : "s"}.`;
+  }
+
+  if (error instanceof Error) {
+    return `PageSpeed ${strategy} request failed: ${error.message}`;
+  }
+
+  return `PageSpeed ${strategy} request failed.`;
+}
+
 async function fetchStrategyMetrics(
   siteUrl: string,
   strategy: "mobile" | "desktop",
   apiKey: string,
   fetchImpl: FetchLike,
   referer?: string,
+  timeoutMs = PAGESPEED_STRATEGY_TIMEOUT_MS,
 ): Promise<{ metrics: PageSpeedStrategyMetrics; errorMessage: string | null }> {
   const url = new URL(PAGESPEED_ENDPOINT);
   url.searchParams.set("url", siteUrl);
@@ -134,13 +150,30 @@ async function fetchStrategyMetrics(
     url.searchParams.append("category", category);
   }
 
-  const response = await fetchImpl(url, {
-    headers: {
-      Accept: "application/json",
-      ...(referer ? { Referer: referer } : {}),
-    },
-    cache: "no-store",
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  let response: Response;
+
+  try {
+    response = await fetchImpl(url, {
+      headers: {
+        Accept: "application/json",
+        ...(referer ? { Referer: referer } : {}),
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } catch (error) {
+    return {
+      metrics: createEmptyStrategyMetrics(),
+      errorMessage: buildFetchFailureMessage(error, strategy, timeoutMs),
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const payload = (await response.json().catch(() => null)) as PageSpeedApiResponse | null;
 
@@ -189,9 +222,12 @@ export async function fetchPageSpeedRow(
   fetchImpl: FetchLike = fetch,
   referer?: string,
   checkedAt = new Date().toISOString(),
+  strategyTimeoutMs = PAGESPEED_STRATEGY_TIMEOUT_MS,
 ): Promise<PageSpeedBulkRow> {
-  const mobile = await fetchStrategyMetrics(site.url, "mobile", apiKey, fetchImpl, referer);
-  const desktop = await fetchStrategyMetrics(site.url, "desktop", apiKey, fetchImpl, referer);
+  const [mobile, desktop] = await Promise.all([
+    fetchStrategyMetrics(site.url, "mobile", apiKey, fetchImpl, referer, strategyTimeoutMs),
+    fetchStrategyMetrics(site.url, "desktop", apiKey, fetchImpl, referer, strategyTimeoutMs),
+  ]);
   const errorMessages = [
     mobile.errorMessage ? `Mobile: ${mobile.errorMessage}` : null,
     desktop.errorMessage ? `Desktop: ${desktop.errorMessage}` : null,
@@ -215,10 +251,11 @@ export async function fetchPageSpeedBulkReport(
   fetchImpl: FetchLike = fetch,
   concurrency = 2,
   referer?: string,
+  strategyTimeoutMs = PAGESPEED_STRATEGY_TIMEOUT_MS,
 ): Promise<PageSpeedBulkResponse> {
   const fetchedAt = new Date().toISOString();
   const rows = await mapWithConcurrency(sites, concurrency, (site) =>
-    fetchPageSpeedRow(site, apiKey, fetchImpl, referer, fetchedAt),
+    fetchPageSpeedRow(site, apiKey, fetchImpl, referer, fetchedAt, strategyTimeoutMs),
   );
 
   return {
