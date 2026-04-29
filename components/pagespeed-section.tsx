@@ -5,7 +5,7 @@ import type {
   PageSpeedRowStatus,
   PageSpeedStrategyMetrics,
 } from "@/lib/types";
-import { GoogleMark } from "@/components/google-mark";
+import { LockedDataRegion } from "@/components/locked-data-region";
 import { createPageSpeedPlaceholderRow } from "@/lib/pagespeed";
 
 function formatTimestamp(value: string | null): string {
@@ -76,7 +76,6 @@ type PageSpeedSectionProps = {
   isLoading: boolean;
   recheckingUrl: string | null;
   report: PageSpeedBulkResponse | null;
-  onGoogleSignIn: () => void;
   onRun: () => void;
   onRecheck: (url: string) => void;
 };
@@ -90,38 +89,107 @@ export function PageSpeedSection({
   isLoading,
   recheckingUrl,
   report,
-  onGoogleSignIn,
   onRun,
   onRecheck,
 }: PageSpeedSectionProps) {
   const visibleRows: PageSpeedVisibleRow[] =
     report?.rows ??
     configuredSites.map((site) => createPageSpeedPlaceholderRow(site));
-  const isGoogleAuthorizing = googleAuthState === "checking" || googleAuthState === "authorizing";
-
-  if (!hasDashboardSession) {
-    return (
-      <section className="integration integration--pagespeed integration--locked">
-        <div className="integration__actions integration__actions--solo">
-          <button
-            className="button button--google"
-            disabled={isGoogleAuthorizing || Boolean(googleConfigError)}
-            onClick={onGoogleSignIn}
-            type="button"
-          >
-            <span className="google-signin">
-              <span className="google-signin__badge">
-                <GoogleMark />
-              </span>
-              <span className="google-signin__label">
-                {googleAuthState === "authorizing" ? "Authorizing..." : "Sign in with Google"}
-              </span>
-            </span>
-          </button>
+  const isLocked = !hasDashboardSession;
+  const resultsContent =
+    visibleRows.length > 0 ? (
+      <section className="properties">
+        <div className="properties-table properties-table--pagespeed" role="region" aria-label="PageSpeed bulk results">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Site</th>
+                <th scope="col">Mobile perf</th>
+                <th scope="col">Desktop perf</th>
+                <th scope="col">Accessibility</th>
+                <th scope="col">Best practices</th>
+                <th scope="col">SEO</th>
+                <th scope="col">Mobile FCP</th>
+                <th scope="col">Mobile LCP</th>
+                <th scope="col">Mobile TBT</th>
+                <th scope="col">Mobile CLS</th>
+                <th scope="col">Desktop FCP</th>
+                <th scope="col">Desktop LCP</th>
+                <th scope="col">Desktop TBT</th>
+                <th scope="col">Desktop CLS</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleRows.map((row) => (
+                <tr key={row.url}>
+                  <th className="properties-table__property properties-table__property--site" scope="row">
+                    <span className="properties-table__property-heading properties-table__property-heading--stacked">
+                      <span className="properties-table__property-name">{row.label}</span>
+                      {row.checkedAt ? (
+                        <span className="properties-table__property-actions properties-table__property-actions--stacked">
+                          <a className="text-link text-link--subtle" href={row.reportUrl} rel="noreferrer" target="_blank">
+                            Open report
+                          </a>
+                          <button
+                            className="text-link text-link--button text-link--subtle"
+                            disabled={isLoading || isLocked}
+                            onClick={() => onRecheck(row.url)}
+                            type="button"
+                          >
+                            {recheckingUrl === row.url ? "Rechecking..." : "Recheck"}
+                          </button>
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="properties-table__property-meta">{formatLastChecked(row.checkedAt)}</span>
+                    {row.errorMessage ? (
+                      <span className="properties-table__property-error">{row.errorMessage}</span>
+                    ) : null}
+                  </th>
+                  <td className={`properties-table__metric ${getScoreClassName(row.mobile.performance)}`.trim()}>
+                    {formatScore(row.mobile.performance)}
+                  </td>
+                  <td className={`properties-table__metric ${getScoreClassName(row.desktop.performance)}`.trim()}>
+                    {formatScore(row.desktop.performance)}
+                  </td>
+                  <td className={`properties-table__metric ${getScoreClassName(getSharedMetric(row, "accessibility"))}`.trim()}>
+                    {formatScore(getSharedMetric(row, "accessibility"))}
+                  </td>
+                  <td className={`properties-table__metric ${getScoreClassName(getSharedMetric(row, "bestPractices"))}`.trim()}>
+                    {formatScore(getSharedMetric(row, "bestPractices"))}
+                  </td>
+                  <td className={`properties-table__metric ${getScoreClassName(getSharedMetric(row, "seo"))}`.trim()}>
+                    {formatScore(getSharedMetric(row, "seo"))}
+                  </td>
+                  <td className="properties-table__timestamp">{formatMetric(row.mobile.firstContentfulPaint)}</td>
+                  <td className="properties-table__timestamp">{formatMetric(row.mobile.largestContentfulPaint)}</td>
+                  <td className="properties-table__timestamp">{formatMetric(row.mobile.totalBlockingTime)}</td>
+                  <td className="properties-table__timestamp">
+                    {formatMetric(row.mobile.cumulativeLayoutShift)}
+                  </td>
+                  <td className="properties-table__timestamp">{formatMetric(row.desktop.firstContentfulPaint)}</td>
+                  <td className="properties-table__timestamp">
+                    {formatMetric(row.desktop.largestContentfulPaint)}
+                  </td>
+                  <td className="properties-table__timestamp">{formatMetric(row.desktop.totalBlockingTime)}</td>
+                  <td className="properties-table__timestamp">
+                    {formatMetric(row.desktop.cumulativeLayoutShift)}
+                  </td>
+                  <td className="properties-table__status">
+                    {row.status ? <span className={`pill pill--${row.status}`}>{row.status}</span> : "Not run"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
+    ) : (
+      <section className="locked-placeholder">
+        Google Analytics web stream URLs are discovered after Google sign-in.
+      </section>
     );
-  }
 
   return (
     <section className="integration integration--pagespeed">
@@ -130,25 +198,33 @@ export function PageSpeedSection({
           <p className="integration__eyebrow">PageSpeed</p>
           <h2>Bulk site checks</h2>
         </div>
-        <div className="integration__actions">
-          <button className="button" disabled={isLoading || configuredSites.length === 0} onClick={onRun} type="button">
-            {isLoading ? "Running..." : "Run PageSpeed bulk report"}
-          </button>
-        </div>
+        {!isLocked ? (
+          <div className="integration__actions">
+            <button className="button" disabled={isLoading || configuredSites.length === 0} onClick={onRun} type="button">
+              {isLoading ? "Running..." : "Run PageSpeed bulk report"}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <section className="status-bar">
-        <span className={report ? "status-bar__live-dot" : ""}>
-          {isLoading
-            ? "Running"
-            : report
-              ? "Ready"
-              : configuredSites.length > 0
-                ? "Ready"
-                : "Idle"}
+        <span className={report && !isLocked ? "status-bar__live-dot" : ""}>
+          {isLocked
+            ? googleAuthState === "checking"
+              ? "Checking"
+              : "Signed out"
+            : isLoading
+                ? "Running"
+                : report
+                  ? "Ready"
+                  : configuredSites.length > 0
+                    ? "Ready"
+                    : "Idle"}
         </span>
         <span>
-          {report
+          {isLocked
+            ? "Requires Google sign-in to discover GA site URLs"
+            : report
             ? `Checked ${report.totalSites} site${report.totalSites === 1 ? "" : "s"} • Updated ${formatTimestamp(report.fetchedAt)}`
             : configuredSites.length > 0
               ? `Monitoring ${configuredSites.length} GA site${configuredSites.length === 1 ? "" : "s"} • Run to fetch metrics`
@@ -170,95 +246,7 @@ export function PageSpeedSection({
         </section>
       ) : null}
 
-      {visibleRows.length > 0 ? (
-        <section className="properties">
-          <div className="properties-table properties-table--pagespeed" role="region" aria-label="PageSpeed bulk results">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Site</th>
-                  <th scope="col">Mobile perf</th>
-                  <th scope="col">Desktop perf</th>
-                  <th scope="col">Accessibility</th>
-                  <th scope="col">Best practices</th>
-                  <th scope="col">SEO</th>
-                  <th scope="col">Mobile FCP</th>
-                  <th scope="col">Mobile LCP</th>
-                  <th scope="col">Mobile TBT</th>
-                  <th scope="col">Mobile CLS</th>
-                  <th scope="col">Desktop FCP</th>
-                  <th scope="col">Desktop LCP</th>
-                  <th scope="col">Desktop TBT</th>
-                  <th scope="col">Desktop CLS</th>
-                  <th scope="col">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleRows.map((row) => (
-                  <tr key={row.url}>
-                    <th className="properties-table__property properties-table__property--site" scope="row">
-                      <span className="properties-table__property-heading properties-table__property-heading--stacked">
-                        <span className="properties-table__property-name">{row.label}</span>
-                        {row.checkedAt ? (
-                          <span className="properties-table__property-actions properties-table__property-actions--stacked">
-                            <a className="text-link text-link--subtle" href={row.reportUrl} rel="noreferrer" target="_blank">
-                              Open report
-                            </a>
-                            <button
-                              className="text-link text-link--button text-link--subtle"
-                              disabled={isLoading}
-                              onClick={() => onRecheck(row.url)}
-                              type="button"
-                            >
-                              {recheckingUrl === row.url ? "Rechecking..." : "Recheck"}
-                            </button>
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="properties-table__property-meta">{formatLastChecked(row.checkedAt)}</span>
-                      {row.errorMessage ? (
-                        <span className="properties-table__property-error">{row.errorMessage}</span>
-                      ) : null}
-                    </th>
-                    <td className={`properties-table__metric ${getScoreClassName(row.mobile.performance)}`.trim()}>
-                      {formatScore(row.mobile.performance)}
-                    </td>
-                    <td className={`properties-table__metric ${getScoreClassName(row.desktop.performance)}`.trim()}>
-                      {formatScore(row.desktop.performance)}
-                    </td>
-                    <td className={`properties-table__metric ${getScoreClassName(getSharedMetric(row, "accessibility"))}`.trim()}>
-                      {formatScore(getSharedMetric(row, "accessibility"))}
-                    </td>
-                    <td className={`properties-table__metric ${getScoreClassName(getSharedMetric(row, "bestPractices"))}`.trim()}>
-                      {formatScore(getSharedMetric(row, "bestPractices"))}
-                    </td>
-                    <td className={`properties-table__metric ${getScoreClassName(getSharedMetric(row, "seo"))}`.trim()}>
-                      {formatScore(getSharedMetric(row, "seo"))}
-                    </td>
-                    <td className="properties-table__timestamp">{formatMetric(row.mobile.firstContentfulPaint)}</td>
-                    <td className="properties-table__timestamp">{formatMetric(row.mobile.largestContentfulPaint)}</td>
-                    <td className="properties-table__timestamp">{formatMetric(row.mobile.totalBlockingTime)}</td>
-                    <td className="properties-table__timestamp">
-                      {formatMetric(row.mobile.cumulativeLayoutShift)}
-                    </td>
-                    <td className="properties-table__timestamp">{formatMetric(row.desktop.firstContentfulPaint)}</td>
-                    <td className="properties-table__timestamp">
-                      {formatMetric(row.desktop.largestContentfulPaint)}
-                    </td>
-                    <td className="properties-table__timestamp">{formatMetric(row.desktop.totalBlockingTime)}</td>
-                    <td className="properties-table__timestamp">
-                      {formatMetric(row.desktop.cumulativeLayoutShift)}
-                    </td>
-                    <td className="properties-table__status">
-                      {row.status ? <span className={`pill pill--${row.status}`}>{row.status}</span> : "Not run"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
+      {isLocked ? <LockedDataRegion provider="Google">{resultsContent}</LockedDataRegion> : visibleRows.length > 0 ? resultsContent : null}
     </section>
   );
 }

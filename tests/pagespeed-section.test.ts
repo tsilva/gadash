@@ -9,7 +9,6 @@ const unlockedGoogleProps = {
   googleAuthState: "loaded" as const,
   googleConfigError: null,
   hasDashboardSession: true,
-  onGoogleSignIn: () => undefined,
 };
 
 test("PageSpeedSection renders a loading button state", () => {
@@ -53,7 +52,7 @@ test("PageSpeedSection renders Google Analytics sites before the first report ru
   assert.doesNotMatch(markup, /Recheck/);
 });
 
-test("PageSpeedSection renders Google sign-in while locked", () => {
+test("PageSpeedSection renders section context while locked", () => {
   const markup = renderToStaticMarkup(
     createElement(PageSpeedSection, {
       configuredSites: [{ url: "https://alpha.example/", label: "alpha.example" }],
@@ -62,7 +61,6 @@ test("PageSpeedSection renders Google sign-in while locked", () => {
       googleConfigError: null,
       hasDashboardSession: false,
       isLoading: false,
-      onGoogleSignIn: () => undefined,
       onRun: () => undefined,
       onRecheck: () => undefined,
       recheckingUrl: null,
@@ -70,9 +68,9 @@ test("PageSpeedSection renders Google sign-in while locked", () => {
     }),
   );
 
-  assert.match(markup, /Sign in with Google/);
-  assert.doesNotMatch(markup, /Bulk site checks/);
-  assert.doesNotMatch(markup, /alpha\.example/);
+  assert.match(markup, /Bulk site checks/);
+  assert.match(markup, /Requires signing in with Google/);
+  assert.match(markup, /alpha\.example/);
   assert.doesNotMatch(markup, /Run PageSpeed bulk report/);
 });
 
