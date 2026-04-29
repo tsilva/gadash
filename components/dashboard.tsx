@@ -26,6 +26,7 @@ import {
   createEmptyGitHubHistory,
   getEmptySnapshot,
   getGitHubGrowthSeries,
+  getStarredGitHubRepos,
   mergeGitHubHistory,
   pruneGitHubLineGrowthHistory,
   summarizeGitHubLineGrowth,
@@ -39,6 +40,7 @@ import { aggregateWeeklyContributions } from "@/lib/github";
 import { createPageSpeedPlaceholderRow, mergePageSpeedReportRow } from "@/lib/pagespeed";
 import type {
   DashboardProperty,
+  GitHubRepo,
   GitHubMetricsRequest,
   GitHubMetricsResponse,
   GitHubHistoryStore,
@@ -339,6 +341,7 @@ export function Dashboard({
   const [githubScope, setGitHubScope] = useState("");
   const [githubSummary, setGitHubSummary] = useState<GitHubSummary | null>(null);
   const [githubViewerUrl, setGitHubViewerUrl] = useState<string | null>(null);
+  const [githubStarredRepos, setGitHubStarredRepos] = useState<GitHubRepo[]>([]);
   const [githubCommitActivity, setGitHubCommitActivity] = useState<GitHubTimeseriesPoint[]>([]);
   const [githubLineGrowth, setGitHubLineGrowth] = useState<GitHubTimeseriesPoint[]>([]);
   const [githubStarHistory, setGitHubStarHistory] = useState<GitHubTimeseriesPoint[]>([]);
@@ -474,6 +477,7 @@ export function Dashboard({
       setGitHubScope("");
       setGitHubSummary(null);
       setGitHubViewerUrl(null);
+      setGitHubStarredRepos([]);
       setGitHubCommitActivity([]);
       setGitHubLineGrowth([]);
       setGitHubStarHistory([]);
@@ -624,6 +628,7 @@ export function Dashboard({
         }),
       );
       setGitHubViewerUrl(viewer.profileUrl);
+      setGitHubStarredRepos(getStarredGitHubRepos(repos));
       setGitHubCommitActivity(limitPoints(nextHistory.commitActivity, 26));
       setGitHubLineGrowth(limitPoints(summarizeGitHubLineGrowth(nextHistory.repoLineGrowth).points, 26));
       setGitHubStarHistory(getGitHubGrowthSeries(nextHistory, "totalStars"));
@@ -1473,6 +1478,50 @@ export function Dashboard({
                 </section>
               ) : null}
 
+              <section className="github-repos" aria-label="Starred GitHub repositories">
+                <div className="github-repos__header">
+                  <div>
+                    <p className="chart-card__label">Starred repositories</p>
+                    <h3>Repos with stars</h3>
+                  </div>
+                  <span>{formatCount(githubStarredRepos.length)} starred</span>
+                </div>
+                {githubStarredRepos.length > 0 ? (
+                  <div
+                    aria-label="GitHub repositories with stars"
+                    className="properties-table github-repos__table"
+                    role="region"
+                  >
+                    <table>
+                      <thead>
+                        <tr>
+                          <th scope="col">Repository</th>
+                          <th scope="col">Stars</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {githubStarredRepos.map((repo) => (
+                          <tr key={repo.id}>
+                            <th className="properties-table__property" scope="row">
+                              <a className="text-link" href={repo.url} rel="noreferrer" target="_blank">
+                                {repo.nameWithOwner}
+                              </a>
+                              <span className="properties-table__property-meta">
+                                {repo.isPrivate ? "Private" : "Public"}
+                                {repo.pushedAt ? ` • Updated ${formatDate(repo.pushedAt.slice(0, 10))}` : ""}
+                              </span>
+                            </th>
+                            <td className="properties-table__metric">{formatCount(repo.stargazerCount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="github-repos__empty">No repositories with stars were returned for this account.</p>
+                )}
+              </section>
+
               <section className="charts-grid">
                 <TimeSeriesChart
                   emptyMessage="Commit activity appears after the first successful GitHub sync."
@@ -1530,6 +1579,17 @@ export function Dashboard({
                   <strong>—/—</strong>
                   <span>Repository stats checked after sign-in</span>
                 </article>
+              </section>
+
+              <section className="github-repos">
+                <div className="github-repos__header">
+                  <div>
+                    <p className="chart-card__label">Starred repositories</p>
+                    <h3>Repos with stars</h3>
+                  </div>
+                  <span>Sign in required</span>
+                </div>
+                <p className="github-repos__empty">Repository star counts appear after GitHub sign-in.</p>
               </section>
 
               <section className="charts-grid">
