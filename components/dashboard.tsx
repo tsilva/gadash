@@ -1315,6 +1315,7 @@ export function Dashboard({
           error={pageSpeedError}
           googleAuthState={googleAuthState}
           googleConfigError={googleConfigError}
+          hasGoogleAccessToken={Boolean(googleAccessToken)}
           hasDashboardSession={dashboardSessionReady}
           isLoading={pageSpeedLoading}
           recheckingUrl={pageSpeedRecheckingUrl}
