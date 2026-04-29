@@ -5,20 +5,21 @@ import {
   readDashboardSessionFromRequest,
   setGitHubSessionCookie,
 } from "@/lib/server-auth";
+import { normalizeEnvValue } from "@/lib/env";
 
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
 const STATE_COOKIE_NAME = "gadash.github-oauth-state";
 
 function getGitHubClientId(): string {
   return (
-    process.env.GITHUB_CLIENT_ID?.trim() ??
-    process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID?.trim() ??
+    normalizeEnvValue(process.env.GITHUB_CLIENT_ID) ||
+    normalizeEnvValue(process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID) ||
     ""
   );
 }
 
 function getGitHubClientSecret(): string {
-  return process.env.GITHUB_CLIENT_SECRET?.trim() ?? "";
+  return normalizeEnvValue(process.env.GITHUB_CLIENT_SECRET);
 }
 
 function getPopupUrl(requestUrl: string, success: boolean, error?: string): URL {

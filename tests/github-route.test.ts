@@ -73,6 +73,30 @@ test("GET /api/github/oauth/start requires dashboard auth and sets an OAuth stat
   );
 });
 
+test("GET /api/github/oauth/start rejects copied placeholder client IDs", async () => {
+  await withEnv(
+    {
+      AUTH_SESSION_SECRET: "test-secret",
+      GITHUB_CLIENT_ID: undefined,
+      NEXT_PUBLIC_GITHUB_CLIENT_ID: "your-github-oauth-client-id",
+    },
+    async () => {
+      const response = await oauthStart(
+        new Request("https://gadash.tsilva.eu/api/github/oauth/start", {
+          headers: {
+            cookie: createCookieHeader(),
+          },
+        }),
+      );
+      const payload = (await response.json()) as { error: string };
+
+      assert.equal(response.status, 500);
+      assert.equal(payload.error, "Missing GitHub OAuth client configuration.");
+      assert.equal(response.headers.get("location"), null);
+    },
+  );
+});
+
 test("GET /api/github/oauth/callback sets the GitHub session cookie and redirects to the popup page", async () => {
   const originalFetch = global.fetch;
 
@@ -113,6 +137,33 @@ test("GET /api/github/oauth/callback sets the GitHub session cookie and redirect
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+test("GET /api/github/oauth/callback rejects copied placeholder server config", async () => {
+  await withEnv(
+    {
+      AUTH_SESSION_SECRET: "test-secret",
+      GITHUB_CLIENT_ID: "your-github-oauth-client-id",
+      GITHUB_CLIENT_SECRET: "your-github-oauth-client-secret",
+      NEXT_PUBLIC_GITHUB_CLIENT_ID: undefined,
+    },
+    async () => {
+      const response = await oauthCallback(
+        new Request("https://gadash.tsilva.eu/api/github/oauth/callback?code=abc123&state=state-123", {
+          headers: {
+            cookie: createCookieHeader([{ name: "gadash.github-oauth-state", value: "state-123" }]),
+          },
+        }),
+      );
+      const location = response.headers.get("location") ?? "";
+
+      assert.equal(response.status, 307);
+      assert.equal(
+        location,
+        "https://gadash.tsilva.eu/github/auth/popup?success=0&error=GitHub+OAuth+server+configuration+is+incomplete.",
+      );
+    },
+  );
 });
 
 test("GET /api/github/session returns connection state for the server-held GitHub cookie", async () => {
