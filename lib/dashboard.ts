@@ -86,6 +86,40 @@ function dedupeRepoLineGrowth(repoLineGrowth: GitHubRepoLineGrowth[]): GitHubRep
   return [...byRepoId.values()].sort((left, right) => left.repoName.localeCompare(right.repoName));
 }
 
+function isUncollectedLineGrowthPlaceholder(repoLineGrowth: GitHubRepoLineGrowth): boolean {
+  return (
+    repoLineGrowth.status === "error" &&
+    repoLineGrowth.weeks.length === 0 &&
+    repoLineGrowth.errorMessage === "Repository statistics have not been collected yet."
+  );
+}
+
+export function shouldRefreshGitHubLineGrowth(
+  repoLineGrowth: GitHubRepoLineGrowth,
+  today: string,
+): boolean {
+  return (
+    repoLineGrowth.fetchedOn.slice(0, 10) !== today ||
+    /still generating/i.test(repoLineGrowth.errorMessage ?? "")
+  );
+}
+
+export function pruneGitHubLineGrowthHistory(
+  history: GitHubHistoryStore,
+  currentRepoIds?: Set<string>,
+): GitHubHistoryStore {
+  return {
+    ...history,
+    repoLineGrowth: history.repoLineGrowth.filter((entry) => {
+      if (isUncollectedLineGrowthPlaceholder(entry)) {
+        return false;
+      }
+
+      return currentRepoIds ? currentRepoIds.has(entry.repoId) : true;
+    }),
+  };
+}
+
 export function mergeGitHubHistory(
   history: GitHubHistoryStore,
   update: {

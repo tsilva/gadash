@@ -26,9 +26,11 @@ import {
   getEmptySnapshot,
   getGitHubHistorySeries,
   mergeGitHubHistory,
+  pruneGitHubLineGrowthHistory,
   summarizeGitHubLineGrowth,
   summarizeGitHubMetrics,
   summarizeSnapshots,
+  shouldRefreshGitHubLineGrowth,
 } from "@/lib/dashboard";
 import { fetchPropertyRealtimeSnapshot } from "@/lib/ga4";
 import { clearGitHubHistory, loadGitHubHistory, saveGitHubHistory } from "@/lib/github-history";
@@ -188,14 +190,16 @@ function TimeSeriesChart({
   const height = 220;
   const padding = 18;
 
-  if (points.length < 2) {
+  if (points.length === 0) {
     return (
       <article className="chart-card">
         <div className="chart-card__copy">
           <p className="chart-card__label">{title}</p>
           <h3>{subtitle}</h3>
         </div>
-        <p className="chart-card__empty">{emptyMessage}</p>
+        <div className="chart-card__placeholder">
+          <span>{emptyMessage}</span>
+        </div>
       </article>
     );
   }
@@ -224,7 +228,7 @@ function TimeSeriesChart({
         />
         {variant === "bars"
           ? points.map((point, index) => {
-              const barWidth = chartWidth / points.length;
+              const barWidth = chartWidth / Math.max(points.length, 1);
               const x = padding + index * barWidth + barWidth * 0.15;
               const normalizedHeight = ((point.value - minValue) / valueRange) * chartHeight;
               const barHeight = Math.max(normalizedHeight, 2);
@@ -243,7 +247,26 @@ function TimeSeriesChart({
               );
             })
           : null}
-        <path className="chart-card__line" d={buildPath(points, width, height, padding, "value")} />
+        {points.length === 1 && variant !== "bars" ? (
+          <line
+            className="chart-card__line chart-card__line--flat"
+            x1={padding}
+            x2={width - padding}
+            y1={height / 2}
+            y2={height / 2}
+          />
+        ) : null}
+        {points.length > 1 ? (
+          <path className="chart-card__line" d={buildPath(points, width, height, padding, "value")} />
+        ) : null}
+        {points.length === 1 && variant !== "bars" ? (
+          <circle
+            className="chart-card__point"
+            cx={width / 2}
+            cy={height / 2}
+            r="6"
+          />
+        ) : null}
         {points.some((point) => typeof point.secondaryValue === "number") ? (
           <path
             className="chart-card__line chart-card__line--secondary"
@@ -539,40 +562,27 @@ export function Dashboard({
     try {
       const currentLogin = githubSummary?.login ?? githubHistoryRef.current.login;
       const storedHistory = currentLogin
-        ? await loadGitHubHistory(currentLogin)
+        ? pruneGitHubLineGrowthHistory(await loadGitHubHistory(currentLogin))
         : createEmptyGitHubHistory("");
       const today = new Date().toISOString().slice(0, 10);
       const staleRepos = storedHistory.repoLineGrowth
-        .filter((entry) => entry.fetchedOn.slice(0, 10) !== today)
+        .filter((entry) => shouldRefreshGitHubLineGrowth(entry, today))
         .map((entry) => ({
           id: entry.repoId,
           nameWithOwner: entry.repoName,
         }));
       const metricsRequest =
-        currentLogin.length > 0
+        currentLogin.length > 0 && storedHistory.repoLineGrowth.length > 0
           ? { staleRepos }
           : {};
       const { fetchedAt, scope, viewer, repos, contributions, repoLineGrowth: refreshedLineGrowth } =
         await fetchGitHubMetricsRoute(metricsRequest);
-      const history = await loadGitHubHistory(viewer.login);
+      const currentRepoIds = new Set(repos.map((repo) => repo.id));
+      const history = pruneGitHubLineGrowthHistory(await loadGitHubHistory(viewer.login), currentRepoIds);
 
       setGitHubConnected(true);
       setGitHubScope(scope);
 
-      const existingByRepo = new Map(history.repoLineGrowth.map((entry) => [entry.repoId, entry]));
-      const refreshedByRepo = new Map(refreshedLineGrowth.map((entry) => [entry.repoId, entry]));
-      const repoLineGrowth = repos.map(
-        (repo) =>
-          refreshedByRepo.get(repo.id) ??
-          existingByRepo.get(repo.id) ?? {
-            repoId: repo.id,
-            repoName: repo.nameWithOwner,
-            fetchedOn: fetchedAt,
-            weeks: [],
-            status: "error" as const,
-            errorMessage: "Repository statistics have not been collected yet.",
-          },
-      );
       const totalStars = repos.reduce((sum, repo) => sum + repo.stargazerCount, 0);
       const commitActivity = aggregateWeeklyContributions(contributions);
       const nextHistory = mergeGitHubHistory(history, {
@@ -581,7 +591,7 @@ export function Dashboard({
         totalStars,
         repoNames: repos.map((repo) => repo.nameWithOwner),
         commitActivity,
-        repoLineGrowth,
+        repoLineGrowth: refreshedLineGrowth,
       });
 
       await saveGitHubHistory(nextHistory);
