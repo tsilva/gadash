@@ -7,6 +7,7 @@ import type {
 const GITHUB_API_URL = "https://api.github.com";
 const GITHUB_GRAPHQL_URL = "https://api.github.com/graphql";
 const CONTRIBUTION_LOOKBACK_DAYS = 182;
+const GITHUB_REQUEST_TIMEOUT_MS = 15_000;
 
 type GitHubViewerResponse = {
   login: string;
@@ -54,6 +55,10 @@ export type GitHubViewer = {
   profileUrl: string;
 };
 
+function createGitHubRequestSignal(): AbortSignal {
+  return AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS);
+}
+
 export async function githubFetchJson<T>(
   path: string,
   accessToken: string,
@@ -61,6 +66,7 @@ export async function githubFetchJson<T>(
 ): Promise<T> {
   const response = await fetch(`${GITHUB_API_URL}${path}`, {
     ...init,
+    signal: init.signal ?? createGitHubRequestSignal(),
     headers: {
       Accept: "application/vnd.github+json",
       Authorization: `Bearer ${accessToken}`,
@@ -159,6 +165,7 @@ export async function fetchGitHubContributionSeries(
       variables: { from, to },
     }),
     cache: "no-store",
+    signal: createGitHubRequestSignal(),
   });
 
   const payload = (await response.json()) as GitHubContributionResponse;
@@ -181,87 +188,67 @@ export async function fetchGitHubContributionSeries(
   return days.filter((day) => day.date.length > 0);
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
 export async function fetchGitHubRepoLineGrowth(
   repo: Pick<GitHubRepo, "id" | "nameWithOwner">,
   accessToken: string,
 ): Promise<GitHubRepoLineGrowth> {
-  let lastStatus = 0;
-
-  for (const delayMs of [0, 1_500, 3_000]) {
-    if (delayMs > 0) {
-      await wait(delayMs);
-    }
-
-    const response = await fetch(
-      `${GITHUB_API_URL}/repos/${repo.nameWithOwner}/stats/code_frequency`,
-      {
-        headers: {
-          Accept: "application/vnd.github+json",
-          Authorization: `Bearer ${accessToken}`,
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-        cache: "no-store",
+  const response = await fetch(
+    `${GITHUB_API_URL}/repos/${repo.nameWithOwner}/stats/code_frequency`,
+    {
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${accessToken}`,
+        "X-GitHub-Api-Version": "2022-11-28",
       },
-    );
+      cache: "no-store",
+      signal: createGitHubRequestSignal(),
+    },
+  );
 
-    lastStatus = response.status;
-
-    if (response.status === 202) {
-      continue;
-    }
-
-    if (response.status === 204 || response.status === 422) {
-      return {
-        repoId: repo.id,
-        repoName: repo.nameWithOwner,
-        fetchedOn: new Date().toISOString(),
-        weeks: [],
-        status: "error",
-        errorMessage: "GitHub does not expose line-growth statistics for this repository.",
-      };
-    }
-
-    if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      return {
-        repoId: repo.id,
-        repoName: repo.nameWithOwner,
-        fetchedOn: new Date().toISOString(),
-        weeks: [],
-        status: "error",
-        errorMessage: body || `GitHub stats request failed with status ${response.status}.`,
-      };
-    }
-
-    const data = (await response.json()) as CodeFrequencyResponse;
-
+  if (response.status === 202) {
     return {
       repoId: repo.id,
       repoName: repo.nameWithOwner,
       fetchedOn: new Date().toISOString(),
-      weeks: data.map(([unixWeek, additions, deletions]) => ({
-        date: new Date(unixWeek * 1000).toISOString().slice(0, 10),
-        value: additions + deletions,
-      })),
-      status: "ok",
+      weeks: [],
+      status: "error",
+      errorMessage: "GitHub is still generating repository statistics. Try Refresh again later.",
     };
   }
+
+  if (response.status === 204 || response.status === 422) {
+    return {
+      repoId: repo.id,
+      repoName: repo.nameWithOwner,
+      fetchedOn: new Date().toISOString(),
+      weeks: [],
+      status: "error",
+      errorMessage: "GitHub does not expose line-growth statistics for this repository.",
+    };
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    return {
+      repoId: repo.id,
+      repoName: repo.nameWithOwner,
+      fetchedOn: new Date().toISOString(),
+      weeks: [],
+      status: "error",
+      errorMessage: body || `GitHub stats request failed with status ${response.status}.`,
+    };
+  }
+
+  const data = (await response.json()) as CodeFrequencyResponse;
 
   return {
     repoId: repo.id,
     repoName: repo.nameWithOwner,
     fetchedOn: new Date().toISOString(),
-    weeks: [],
-    status: "error",
-    errorMessage:
-      lastStatus === 202
-        ? "GitHub is still generating repository statistics. Try again later."
-        : `GitHub stats request failed with status ${lastStatus}.`,
+    weeks: data.map(([unixWeek, additions, deletions]) => ({
+      date: new Date(unixWeek * 1000).toISOString().slice(0, 10),
+      value: additions + deletions,
+    })),
+    status: "ok",
   };
 }

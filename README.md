@@ -23,7 +23,7 @@ GADash is a private Next.js dashboard for checking GA4 realtime activity, GitHub
 GA4, GitHub, and PageSpeed all answer useful operational questions, but each one usually requires a separate tab, login flow, and mental model. Realtime analytics also needs careful token handling when it runs in the browser.
 
 **The Solution**  
-GADash opens behind a server-verified Google identity gate, then lets the browser request GA4 Analytics access directly. GitHub OAuth and PageSpeed checks run through server route handlers so private tokens and API keys stay out of browser JavaScript.
+GADash opens directly to the dashboard, with each integration showing its own sign-in action when needed. Google sign-in unlocks the GA4 cards and server-side PageSpeed checks, while GitHub OAuth runs through server route handlers so private tokens stay out of browser JavaScript.
 
 **The Result**  
 You get a focused personal command center: live active users, property coverage, GitHub stars/followers/contribution trends, repository line-growth snapshots, and manual bulk Lighthouse checks for configured sites.
@@ -32,12 +32,12 @@ You get a focused personal command center: live active users, property coverage,
 | --- | --- |
 | Data surfaces | GA4 Realtime, GitHub metrics, PageSpeed Insights |
 | GA4 refresh | Polls every 30 seconds after Analytics consent |
-| Session model | 24 hour signed dashboard and GitHub cookies |
+| Session model | 24 hour signed Google dashboard and GitHub cookies |
 | Test suite | Node test runner with `tsx`, no Jest or Vitest |
 
 ## Features
 
-- **Private Google gate** - verifies a Google identity credential server-side before the dashboard opens.
+- **Integration-level sign-in** - opens the dashboard immediately and unlocks Google-backed cards after one Google sign-in.
 - **Direct GA4 realtime reads** - discovers GA4 properties with the Admin API, then fetches active-user metrics from the browser with `analytics.readonly`.
 - **Partial-result handling** - shows coverage counts and stale snapshot warnings when some properties fail or become inaccessible.
 - **Server-held GitHub OAuth** - exchanges GitHub OAuth codes in route handlers and stores the token in an HttpOnly cookie.
@@ -58,7 +58,7 @@ cp .env.example .env.local
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), then sign in with an allowlisted Google account.
+Open [http://localhost:3000](http://localhost:3000), then sign in from the Google Analytics, PageSpeed, or GitHub section you want to use.
 
 ### Check The App
 
@@ -80,11 +80,11 @@ Copy `.env.example` to `.env.local` and fill in only the integrations you plan t
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Yes | Google OAuth client used by the identity gate and GA4 token flow |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Yes | Google OAuth client used by the dashboard session and GA4 token flow |
 | `NEXT_PUBLIC_GOOGLE_AUTHORIZED_ORIGINS` | Yes | Comma-separated origins allowed to use Google sign-in |
 | `NEXT_PUBLIC_SITE_URL` | Recommended | Canonical origin for metadata and social cards |
-| `AUTH_SESSION_SECRET` | Production | Long random secret for signed private dashboard and GitHub cookies |
-| `ALLOWED_GOOGLE_EMAILS` | Yes | Comma-separated Google account allowlist for dashboard access |
+| `AUTH_SESSION_SECRET` | Production | Long random secret for signed Google dashboard and GitHub cookies |
+| `ALLOWED_GOOGLE_EMAILS` | Yes | Comma-separated Google account allowlist for Google-backed dashboard actions |
 | `NEXT_PUBLIC_GITHUB_CLIENT_ID` | Optional | GitHub OAuth app client ID for the GitHub section |
 | `NEXT_PUBLIC_GITHUB_AUTHORIZED_ORIGINS` | Optional | Origins allowed to start the GitHub OAuth flow |
 | `GITHUB_CLIENT_SECRET` | Optional | GitHub OAuth app secret, used only by server route handlers |
@@ -124,7 +124,7 @@ https://status.example.com/
 3. Add `http://localhost:3000` and your production origin to the OAuth client's Authorized JavaScript origins.
 4. Set `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_GOOGLE_AUTHORIZED_ORIGINS`, and `ALLOWED_GOOGLE_EMAILS`.
 
-The first Google sign-in opens the private dashboard. The GA4 section then requests `analytics.readonly` separately and stores the live Analytics access token only in `sessionStorage`.
+The Google Analytics and PageSpeed sections share the Google dashboard session. Signing in with either Google button verifies the allowlisted account server-side; the GA4 access token is still stored only in `sessionStorage`.
 
 ### GitHub
 
@@ -165,14 +165,14 @@ curl -H "x-sentry-smoke-token: $SENTRY_SMOKE_TEST_TOKEN" https://your-domain.exa
 
 ### Google Analytics
 
-- Sign in with the allowlisted Google account to unlock the dashboard.
 - Click `Sign in with Google` in the Google Analytics section to grant `analytics.readonly`.
+- The same Google sign-in also unlocks PageSpeed checks for the current browser session.
 - Use `Refresh` for an immediate GA4 refresh. Automatic polling resumes every 30 seconds.
 - Watch coverage to see how many discovered properties are accessible, inaccessible, or failing.
 
 ### GitHub Metrics
 
-- Sign in with GitHub after the dashboard is unlocked.
+- Sign in with GitHub from the GitHub section.
 - GADash fetches the viewer profile, owned repositories, contribution history, and code-frequency statistics.
 - Stars and follower charts are prospective. They start from the first successful local snapshot in the current browser profile.
 - GitHub trend history is stored in browser-local IndexedDB and is not synced across devices.
@@ -188,8 +188,8 @@ curl -H "x-sentry-smoke-token: $SENTRY_SMOKE_TEST_TOKEN" https://your-domain.exa
 
 | Area | Files | Role |
 | --- | --- | --- |
-| App shell | `app/page.tsx`, `app/layout.tsx`, `app/globals.css` | Server session gate, metadata, and dashboard styling |
-| Dashboard UI | `components/dashboard.tsx`, `components/auth-gate.tsx`, `components/pagespeed-section.tsx` | Client state, Google/GitHub sign-in, polling, charts, and PageSpeed table |
+| App shell | `app/page.tsx`, `app/layout.tsx`, `app/globals.css` | Dashboard shell, metadata, and styling |
+| Dashboard UI | `components/dashboard.tsx`, `components/pagespeed-section.tsx` | Client state, integration sign-in, polling, charts, and PageSpeed table |
 | GA4 | `lib/admin.ts`, `lib/ga4.ts`, `lib/dashboard.ts` | Property discovery, realtime metrics, and aggregate summaries |
 | Auth | `lib/server-auth.ts`, `lib/auth-session.ts`, `app/api/auth/*` | Signed cookies, Google identity verification, and browser token storage helpers |
 | GitHub | `app/api/github/*`, `lib/github-server.ts`, `lib/github-history.ts`, `lib/github.ts` | OAuth code exchange, API proxying, server-held token session, and local history |
@@ -212,18 +212,18 @@ curl -H "x-sentry-smoke-token: $SENTRY_SMOKE_TEST_TOKEN" https://your-domain.exa
 ## Deployment Notes
 
 - Vercel is the intended host for the current setup.
-- Add `AUTH_SESSION_SECRET` and `ALLOWED_GOOGLE_EMAILS` in production. Without them, the private dashboard gate cannot open reliably.
+- Add `AUTH_SESSION_SECRET` and `ALLOWED_GOOGLE_EMAILS` in production. Without them, Google-backed dashboard actions cannot create the signed server session used by PageSpeed.
 - Add the production origin to both the Google OAuth client and `NEXT_PUBLIC_GOOGLE_AUTHORIZED_ORIGINS`.
 - Add the production GitHub callback URL and production origin to the GitHub OAuth App and `NEXT_PUBLIC_GITHUB_AUTHORIZED_ORIGINS`.
 - Vercel preview URLs are not automatically supported unless you explicitly register them with Google and GitHub.
 - Keep the shipped security headers intact. CDN or edge rules should not weaken CSP, frame protections, referrer policy, content-type hardening, or permissions policy.
-- Full sign-out clears the private dashboard cookie, the server-held GitHub cookie, and local browser auth state.
+- Google and GitHub sign-out are scoped to their own integration state and cookies.
 
 ## Project Structure
 
 ```text
 app/                    Next.js routes, metadata, API handlers, and global UI
-components/             Dashboard, auth gate, Google mark, and PageSpeed table
+components/             Dashboard, Google mark, and PageSpeed table
 lib/                    GA4, GitHub, PageSpeed, auth, Sentry, config, and summaries
 tests/                  Node test runner coverage
 assets/                 Source brand, favicon, app icon, and social-card assets

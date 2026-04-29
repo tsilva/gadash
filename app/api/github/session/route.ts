@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 
-import {
-  readDashboardSessionFromRequest,
-  readGitHubSessionFromRequest,
-} from "@/lib/server-auth";
+import { readGitHubSessionFromRequest } from "@/lib/server-auth";
 import type { GitHubSessionResponse } from "@/lib/types";
 
 function jsonResponse(body: GitHubSessionResponse | { error: string }, status = 200) {
@@ -16,10 +13,6 @@ function jsonResponse(body: GitHubSessionResponse | { error: string }, status = 
 }
 
 export async function GET(request: Request) {
-  if (!readDashboardSessionFromRequest(request)) {
-    return jsonResponse({ error: "Dashboard sign-in required." }, 401);
-  }
-
   const githubSession = readGitHubSessionFromRequest(request);
 
   if (!githubSession) {

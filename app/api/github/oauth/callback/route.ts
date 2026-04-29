@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 
 import {
   clearGitHubSessionCookie,
-  readDashboardSessionFromRequest,
   setGitHubSessionCookie,
 } from "@/lib/server-auth";
 import { normalizeEnvValue } from "@/lib/env";
@@ -74,10 +73,6 @@ export async function GET(request: Request) {
     .map((part) => part.trim())
     .find((part) => part.startsWith(`${STATE_COOKIE_NAME}=`))
     ?.slice(`${STATE_COOKIE_NAME}=`.length);
-
-  if (!readDashboardSessionFromRequest(request)) {
-    return createPopupRedirectResponse(request.url, false, "Dashboard sign-in expired. Sign in again.");
-  }
 
   if (!code || !state || !cookieState || cookieState !== state) {
     return createPopupRedirectResponse(request.url, false, "GitHub sign-in could not be verified.");

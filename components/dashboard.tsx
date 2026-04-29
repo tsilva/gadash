@@ -47,8 +47,10 @@ import type {
   PropertyRealtimeSnapshot,
 } from "@/lib/types";
 
-const GOOGLE_SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
+const GOOGLE_ANALYTICS_SCOPE = "https://www.googleapis.com/auth/analytics.readonly";
+const GOOGLE_SCOPE = `${GOOGLE_ANALYTICS_SCOPE} https://www.googleapis.com/auth/userinfo.email`;
 const GOOGLE_POLL_INTERVAL_MS = 30_000;
+const GITHUB_METRICS_TIMEOUT_MS = 30_000;
 const GITHUB_AUTH_MESSAGE_TYPE = "gadash:github-auth";
 
 type GoogleAuthState =
@@ -274,16 +276,22 @@ function GitHubMark() {
 
 type DashboardProps = {
   configuredPageSpeedSites?: PageSpeedMonitoredSite[];
+  hasDashboardSession?: boolean;
   nonce?: string;
 };
 
-export function Dashboard({ configuredPageSpeedSites = [], nonce }: DashboardProps) {
+export function Dashboard({
+  configuredPageSpeedSites = [],
+  hasDashboardSession = false,
+  nonce,
+}: DashboardProps) {
   const [googlePhase, setGooglePhase] = useState<"signed_out" | "authorizing" | "loading" | "loaded">(
     "signed_out",
   );
   const [scriptReady, setScriptReady] = useState(false);
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
   const [googleExpiresAt, setGoogleExpiresAt] = useState<number | null>(null);
+  const [dashboardSessionReady, setDashboardSessionReady] = useState(hasDashboardSession);
   const [properties, setProperties] = useState<DashboardProperty[]>(configuredDashboardProperties);
   const [snapshots, setSnapshots] = useState<PropertyRealtimeSnapshot[]>(
     createLoadingState(configuredDashboardProperties),
@@ -315,6 +323,7 @@ export function Dashboard({ configuredPageSpeedSites = [], nonce }: DashboardPro
   const googleRefreshTimerRef = useRef<number | null>(null);
   const githubPopupRef = useRef<Window | null>(null);
   const githubHistoryRef = useRef<GitHubHistoryStore>(createEmptyGitHubHistory(""));
+  const dashboardSessionReadyRef = useRef(hasDashboardSession);
   const lastPromptRef = useRef<GoogleTokenRequest["prompt"] | undefined>(undefined);
   const silentRestoreAttemptedRef = useRef(false);
 
@@ -400,7 +409,9 @@ export function Dashboard({ configuredPageSpeedSites = [], nonce }: DashboardPro
     (message: string | null) => {
       clearGoogleRefreshTimer();
       googleAccessTokenRef.current = null;
+      dashboardSessionReadyRef.current = false;
       setGoogleAccessToken(null);
+      setDashboardSessionReady(false);
       setGoogleExpiresAt(null);
       clearStoredGoogleAuth(window.sessionStorage);
       setProperties(configuredDashboardProperties);
@@ -453,31 +464,67 @@ export function Dashboard({ configuredPageSpeedSites = [], nonce }: DashboardPro
     [],
   );
 
+  const createDashboardSessionFromGoogleToken = useCallback(async (accessToken: string) => {
+    const response = await fetch("/api/auth/google/session", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ accessToken }),
+      cache: "no-store",
+    });
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (!response.ok) {
+      throw new Error(payload?.error ?? `Google dashboard session failed with status ${response.status}.`);
+    }
+
+    dashboardSessionReadyRef.current = true;
+    setDashboardSessionReady(true);
+  }, []);
+
   const fetchGitHubMetricsRoute = useCallback(
     async (requestBody: GitHubMetricsRequest): Promise<GitHubMetricsResponse> => {
-      const response = await fetch("/api/github/metrics", {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-        cache: "no-store",
-      });
-      const payload = (await response.json().catch(() => null)) as
-        | GitHubMetricsResponse
-        | { error?: string }
-        | null;
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => {
+        controller.abort();
+      }, GITHUB_METRICS_TIMEOUT_MS);
 
-      if (!response.ok) {
-        throw new Error(
-          payload && "error" in payload && typeof payload.error === "string"
-            ? payload.error
-            : `GitHub data refresh failed with status ${response.status}.`,
-        );
+      try {
+        const response = await fetch("/api/github/metrics", {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const payload = (await response.json().catch(() => null)) as
+          | GitHubMetricsResponse
+          | { error?: string }
+          | null;
+
+        if (!response.ok) {
+          throw new Error(
+            payload && "error" in payload && typeof payload.error === "string"
+              ? payload.error
+              : `GitHub data refresh failed with status ${response.status}.`,
+          );
+        }
+
+        return payload as GitHubMetricsResponse;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          throw new Error("GitHub data refresh timed out. Try Refresh again.");
+        }
+
+        throw error;
+      } finally {
+        window.clearTimeout(timeout);
       }
-
-      return payload as GitHubMetricsResponse;
     },
     [],
   );
@@ -577,9 +624,20 @@ export function Dashboard({ configuredPageSpeedSites = [], nonce }: DashboardPro
         setGoogleError(null);
         setGoogleStale(false);
         setGooglePhase("loading");
+        if (!dashboardSessionReadyRef.current) {
+          void createDashboardSessionFromGoogleToken(restoredGoogleAuth.accessToken).catch((error) => {
+            dashboardSessionReadyRef.current = false;
+            setDashboardSessionReady(false);
+            setGoogleError(error instanceof Error ? error.message : "Google dashboard session failed.");
+          });
+        }
       });
     }
-  }, []);
+  }, [createDashboardSessionFromGoogleToken]);
+
+  useEffect(() => {
+    dashboardSessionReadyRef.current = dashboardSessionReady;
+  }, [dashboardSessionReady]);
 
   useEffect(() => {
     if (!scriptReady || googleConfigError) {
@@ -616,6 +674,11 @@ export function Dashboard({ configuredPageSpeedSites = [], nonce }: DashboardPro
         setGoogleError(null);
         setGoogleStale(false);
         setGooglePhase("loading");
+        void createDashboardSessionFromGoogleToken(response.access_token).catch((error) => {
+          dashboardSessionReadyRef.current = false;
+          setDashboardSessionReady(false);
+          setGoogleError(error instanceof Error ? error.message : "Google dashboard session failed.");
+        });
       },
       error_callback: (error) => {
         const isSilentRequest = lastPromptRef.current === "none";
@@ -635,7 +698,13 @@ export function Dashboard({ configuredPageSpeedSites = [], nonce }: DashboardPro
         requestAccessToken("none");
       });
     }
-  }, [googleConfigError, requestAccessToken, resetGoogleSignedOutState, scriptReady]);
+  }, [
+    createDashboardSessionFromGoogleToken,
+    googleConfigError,
+    requestAccessToken,
+    resetGoogleSignedOutState,
+    scriptReady,
+  ]);
 
   useEffect(() => {
     function handleGitHubMessage(event: MessageEvent<GitHubAuthMessage>) {
@@ -803,7 +872,6 @@ export function Dashboard({ configuredPageSpeedSites = [], nonce }: DashboardPro
 
     clearStoredGoogleAuth(window.sessionStorage);
     clearSavedGoogleSession(window.localStorage);
-    await resetGitHubSignedOutState(null, false);
     setPageSpeedReport(null);
     setPageSpeedError(null);
     setPageSpeedRecheckingUrl(null);
@@ -821,8 +889,9 @@ export function Dashboard({ configuredPageSpeedSites = [], nonce }: DashboardPro
       // The next navigation re-checks the server session.
     }
 
+    dashboardSessionReadyRef.current = false;
+    setDashboardSessionReady(false);
     resetGoogleSignedOutState(null);
-    window.location.reload();
   }
 
   async function signOutGitHub() {
@@ -866,6 +935,11 @@ export function Dashboard({ configuredPageSpeedSites = [], nonce }: DashboardPro
         | null;
 
       if (!response.ok) {
+        if (response.status === 401) {
+          dashboardSessionReadyRef.current = false;
+          setDashboardSessionReady(false);
+        }
+
         throw new Error(
           payload && "error" in payload && typeof payload.error === "string"
             ? payload.error
@@ -971,7 +1045,11 @@ export function Dashboard({ configuredPageSpeedSites = [], nonce }: DashboardPro
               ) : (
                 <button
                   className="button button--google"
-                  disabled={googleAuthState === "authorizing" || Boolean(googleConfigError)}
+                  disabled={
+                    googleAuthState === "checking" ||
+                    googleAuthState === "authorizing" ||
+                    Boolean(googleConfigError)
+                  }
                   onClick={() => requestAccessToken("consent")}
                   type="button"
                 >
@@ -1083,7 +1161,11 @@ export function Dashboard({ configuredPageSpeedSites = [], nonce }: DashboardPro
         <PageSpeedSection
           configuredSites={configuredPageSpeedSites}
           error={pageSpeedError}
+          googleAuthState={googleAuthState}
+          googleConfigError={googleConfigError}
+          hasDashboardSession={dashboardSessionReady}
           isLoading={pageSpeedLoading}
+          onGoogleSignIn={() => requestAccessToken("consent")}
           recheckingUrl={pageSpeedRecheckingUrl}
           onRun={() => void runPageSpeedReport()}
           onRecheck={(url) => void recheckPageSpeedSite(url)}
