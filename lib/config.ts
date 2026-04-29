@@ -1,7 +1,8 @@
 import type { DashboardProperty } from "@/lib/types";
+import { normalizeEnvValue } from "@/lib/env";
 
-const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ?? "";
-const GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID?.trim() ?? "";
+const GOOGLE_CLIENT_ID = normalizeEnvValue(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
+const GITHUB_CLIENT_ID = normalizeEnvValue(process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID);
 
 export function parseAuthorizedOrigins(rawValue: string | undefined): string[] {
   return (rawValue ?? "")

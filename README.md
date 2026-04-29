@@ -131,7 +131,7 @@ The first Google sign-in opens the private dashboard. The GA4 section then reque
 1. Create a GitHub OAuth App.
 2. Use `http://localhost:3000/api/github/oauth/callback` as the local callback URL.
 3. Add the production callback URL to the OAuth App before deploying.
-4. Set `NEXT_PUBLIC_GITHUB_CLIENT_ID`, `NEXT_PUBLIC_GITHUB_AUTHORIZED_ORIGINS`, and `GITHUB_CLIENT_SECRET`.
+4. Set `NEXT_PUBLIC_GITHUB_CLIENT_ID`, `NEXT_PUBLIC_GITHUB_AUTHORIZED_ORIGINS`, and `GITHUB_CLIENT_SECRET`. Keep the GitHub values blank to disable the section until a real OAuth App is configured.
 
 The GitHub OAuth flow requests `read:user repo` so private repositories can be included. Leave the GitHub section unsigned in, or remove the GitHub env vars, if you do not want to grant private repository access.
 
