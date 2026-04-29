@@ -101,6 +101,11 @@ button {
     var(--surface);
 }
 
+.integration--locked {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .integration--auth {
   background:
     radial-gradient(circle at top right, rgba(94, 234, 212, 0.08), transparent 30%),
@@ -134,6 +139,11 @@ button {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.integration__actions--solo {
+  justify-content: flex-end;
+  width: 100%;
 }
 
 .auth-gate__copy {

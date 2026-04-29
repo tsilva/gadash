@@ -27,10 +27,10 @@ test("PageSpeedSection renders a loading button state", () => {
   );
 
   assert.match(markup, /Running\.\.\./);
-  assert.match(markup, /Reads the monitored site list from Vercel env vars on demand/);
+  assert.match(markup, /No Google Analytics web stream URLs were discovered/);
 });
 
-test("PageSpeedSection renders configured sites before the first report run", () => {
+test("PageSpeedSection renders Google Analytics sites before the first report run", () => {
   const markup = renderToStaticMarkup(
     createElement(PageSpeedSection, {
       configuredSites: [{ url: "https://alpha.example/", label: "alpha.example" }],
@@ -44,7 +44,7 @@ test("PageSpeedSection renders configured sites before the first report run", ()
     }),
   );
 
-  assert.match(markup, /Monitoring 1 site • Run to fetch metrics/);
+  assert.match(markup, /Monitoring 1 GA site • Run to fetch metrics/);
   assert.match(markup, /alpha\.example/);
   assert.match(markup, /Not run yet/);
   assert.doesNotMatch(markup, /https:\/\/alpha\.example\//);
@@ -71,7 +71,8 @@ test("PageSpeedSection renders Google sign-in while locked", () => {
   );
 
   assert.match(markup, /Sign in with Google/);
-  assert.match(markup, /Sign in with Google to run server-side PageSpeed checks/);
+  assert.doesNotMatch(markup, /Bulk site checks/);
+  assert.doesNotMatch(markup, /alpha\.example/);
   assert.doesNotMatch(markup, /Run PageSpeed bulk report/);
 });
 

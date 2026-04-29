@@ -42,7 +42,7 @@ You get a focused personal command center: live active users, property coverage,
 - **Partial-result handling** - shows coverage counts and stale snapshot warnings when some properties fail or become inaccessible.
 - **Server-held GitHub OAuth** - exchanges GitHub OAuth codes in route handlers and stores the token in an HttpOnly cookie.
 - **GitHub trend charts** - tracks followers, stars, weekly contribution volume, and repository line-growth history in local IndexedDB.
-- **Manual bulk PageSpeed reports** - checks configured HTTPS URLs across mobile and desktop strategies without exposing the PSI key.
+- **Manual bulk PageSpeed reports** - checks Google Analytics web stream URLs across mobile and desktop strategies without exposing the PSI key.
 - **Security headers by default** - applies nonce-based CSP, frame blocking, referrer policy, content-type hardening, and permissions policy through `proxy.ts`.
 - **Sentry-ready builds** - supports client, server, edge, and source-map upload configuration through `@sentry/nextjs`.
 
@@ -90,7 +90,6 @@ Copy `.env.example` to `.env.local` and fill in only the integrations you plan t
 | `GITHUB_CLIENT_SECRET` | Optional | GitHub OAuth app secret, used only by server route handlers |
 | `NEXT_PUBLIC_GA_PROPERTIES_JSON` | Optional | Fallback GA4 property list when Admin API discovery is unavailable |
 | `PAGESPEED_API_KEY` | Optional | Server-side PageSpeed Insights API key |
-| `PAGESPEED_MONITORED_URLS` | Optional | Comma- or newline-separated absolute `https://` URLs to check |
 | `NEXT_PUBLIC_SENTRY_DSN` | Optional | Browser-side Sentry reporting |
 | `SENTRY_DSN` | Optional | Server-side Sentry DSN override |
 | `SENTRY_AUTH_TOKEN` | Optional | Enables Sentry source-map uploads during hosted builds |
@@ -105,14 +104,6 @@ Example fallback GA4 properties:
   { "id": "123456789", "label": "Main Site", "sortOrder": 1 },
   { "id": "987654321", "label": "Docs", "sortOrder": 2 }
 ]
-```
-
-Example PageSpeed URL list:
-
-```text
-https://example.com,
-https://docs.example.com/guides
-https://status.example.com/
 ```
 
 ## Setup Guide
@@ -139,9 +130,8 @@ The GitHub OAuth flow requests `read:user repo` so private repositories can be i
 
 1. Create or reuse a Google API key with access to PageSpeed Insights.
 2. Set `PAGESPEED_API_KEY`.
-3. Set `PAGESPEED_MONITORED_URLS` to one or more absolute `https://` URLs.
 
-PageSpeed checks are manual. Click `Run PageSpeed bulk report` in the dashboard to fetch fresh results, then use `Recheck` to refresh one row.
+PageSpeed checks are manual and use the web stream URLs discovered from Google Analytics after Google sign-in. Click `Run PageSpeed bulk report` in the dashboard to fetch fresh results, then use `Recheck` to refresh one row.
 
 ### Sentry
 
@@ -179,7 +169,7 @@ curl -H "x-sentry-smoke-token: $SENTRY_SMOKE_TEST_TOKEN" https://your-domain.exa
 
 ### PageSpeed Checks
 
-- Configure monitored URLs in `PAGESPEED_MONITORED_URLS`.
+- Sign in with Google so GADash can read GA4 web stream URLs through the Admin API.
 - Run the bulk report manually from the dashboard.
 - Each row shows mobile and desktop performance, accessibility, best practices, SEO, FCP, LCP, TBT, CLS, and a link to the external `pagespeed.web.dev` report.
 - Results stay in memory for the current page session. There is no history, persistence, CSV export, or scheduled run yet.
@@ -190,10 +180,10 @@ curl -H "x-sentry-smoke-token: $SENTRY_SMOKE_TEST_TOKEN" https://your-domain.exa
 | --- | --- | --- |
 | App shell | `app/page.tsx`, `app/layout.tsx`, `app/globals.css` | Dashboard shell, metadata, and styling |
 | Dashboard UI | `components/dashboard.tsx`, `components/pagespeed-section.tsx` | Client state, integration sign-in, polling, charts, and PageSpeed table |
-| GA4 | `lib/admin.ts`, `lib/ga4.ts`, `lib/dashboard.ts` | Property discovery, realtime metrics, and aggregate summaries |
+| GA4 | `lib/admin.ts`, `lib/ga4.ts`, `lib/dashboard.ts` | Property and web stream discovery, realtime metrics, and aggregate summaries |
 | Auth | `lib/server-auth.ts`, `lib/auth-session.ts`, `app/api/auth/*` | Signed cookies, Google identity verification, and browser token storage helpers |
 | GitHub | `app/api/github/*`, `lib/github-server.ts`, `lib/github-history.ts`, `lib/github.ts` | OAuth code exchange, API proxying, server-held token session, and local history |
-| PageSpeed | `app/api/pagespeed/bulk/route.ts`, `lib/pagespeed.ts`, `lib/pagespeed-config.ts` | Server-side PSI calls, URL validation, row refreshes, and report shaping |
+| PageSpeed | `app/api/pagespeed/bulk/route.ts`, `lib/pagespeed.ts`, `lib/pagespeed-config.ts` | Server-side PSI calls, submitted GA site validation, row refreshes, and report shaping |
 | Security | `proxy.ts`, `lib/security-headers.ts` | Per-request CSP nonce and browser hardening headers |
 | Observability | `instrumentation.ts`, `instrumentation-client.ts`, `sentry.*.config.ts`, `lib/sentry.ts` | Sentry wiring for client, server, edge, and request errors |
 | Tests | `tests/*.test.ts` | Pure Node test coverage for routes, config, summaries, auth, headers, and UI helpers |
