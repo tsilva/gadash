@@ -7,7 +7,7 @@ import type {
 
 const PAGESPEED_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
 const CATEGORY_KEYS = ["performance", "accessibility", "best-practices", "seo"] as const;
-const PAGESPEED_STRATEGY_TIMEOUT_MS = 75_000;
+const PAGESPEED_STRATEGY_TIMEOUT_MS = 25_000;
 
 type PageSpeedApiCategory = {
   score?: number | null;

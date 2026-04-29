@@ -132,6 +132,7 @@ The GitHub OAuth flow requests `read:user repo` so private repositories can be i
 2. Set `PAGESPEED_API_KEY`.
 
 PageSpeed checks are manual and use the web stream URLs discovered from Google Analytics after Google sign-in. Click `Run PageSpeed bulk report` in the dashboard to fetch fresh results, then use `Recheck` to refresh one row.
+Each mobile or desktop PageSpeed request is capped at 25 seconds so slow Lighthouse runs return row-level timeout errors instead of timing out the dashboard API request.
 
 ### Sentry
 

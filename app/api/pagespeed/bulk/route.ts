@@ -11,6 +11,9 @@ type PageSpeedRequestBody = {
 };
 
 const MAX_PAGESPEED_SITES = 50;
+const PAGESPEED_ROUTE_STRATEGY_TIMEOUT_MS = 25_000;
+
+export const maxDuration = 30;
 
 class PageSpeedRequestError extends Error {
   constructor(
@@ -161,7 +164,14 @@ export async function POST(request: Request) {
       return jsonResponse({ error: "Requested PageSpeed site is not in the Google Analytics web stream list." }, 400);
     }
 
-    const report = await fetchPageSpeedBulkReport(targetSites, apiKey, fetch, 2, requestReferer);
+    const report = await fetchPageSpeedBulkReport(
+      targetSites,
+      apiKey,
+      fetch,
+      2,
+      requestReferer,
+      PAGESPEED_ROUTE_STRATEGY_TIMEOUT_MS,
+    );
 
     return jsonResponse(report);
   } catch (error) {
