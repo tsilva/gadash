@@ -57,7 +57,7 @@ For GitHub, create an OAuth App with `http://localhost:3000/api/github/oauth/cal
 - This is a Next.js App Router project using pnpm 10.27.0, React 19.2, TypeScript, and plain CSS.
 - The repo enforces pnpm in `preinstall`.
 - GA4 realtime data polls every 30 seconds after Google Analytics consent.
-- The GA4 access token is kept in browser `sessionStorage`; GitHub and dashboard sessions use signed or HttpOnly cookies.
+- The short-lived GA4 access token is kept in browser `localStorage` until it expires or you sign out; GitHub and dashboard sessions use signed or HttpOnly cookies.
 - GitHub trend snapshots are stored in browser-local IndexedDB and are not synced across devices.
 - PageSpeed reports are manual, run through server route handlers, and are not persisted.
 - `proxy.ts` applies the nonce-based CSP and other browser hardening headers.

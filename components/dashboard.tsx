@@ -365,6 +365,7 @@ export function Dashboard({
   const dashboardSessionReadyRef = useRef(hasDashboardSession);
   const lastPromptRef = useRef<GoogleTokenRequest["prompt"] | undefined>(undefined);
   const silentRestoreAttemptedRef = useRef(false);
+  const pendingGoogleTokenRefreshRef = useRef(false);
   const pageSpeedRunIdRef = useRef(0);
 
   const googleConfigError = getGoogleConfigError();
@@ -453,6 +454,7 @@ export function Dashboard({
       setGoogleAccessToken(null);
       setDashboardSessionReady(false);
       setGoogleExpiresAt(null);
+      clearStoredGoogleAuth(window.localStorage);
       clearStoredGoogleAuth(window.sessionStorage);
       setProperties(configuredDashboardProperties);
       setSnapshots(createLoadingState(configuredDashboardProperties));
@@ -510,6 +512,16 @@ export function Dashboard({
     },
     [],
   );
+
+  const requestSilentGoogleTokenRefresh = useCallback(() => {
+    if (document.visibilityState === "hidden") {
+      pendingGoogleTokenRefreshRef.current = true;
+      return;
+    }
+
+    pendingGoogleTokenRefreshRef.current = false;
+    requestAccessToken("none");
+  }, [requestAccessToken]);
 
   const createDashboardSessionFromGoogleToken = useCallback(async (accessToken: string) => {
     const response = await fetch("/api/auth/google/session", {
@@ -649,9 +661,12 @@ export function Dashboard({
   }, [fetchGitHubMetricsRoute, githubSummary?.login, resetGitHubSignedOutState]);
 
   useEffect(() => {
-    const restoredGoogleAuth = loadStoredGoogleAuth(window.sessionStorage);
+    const restoredGoogleAuth =
+      loadStoredGoogleAuth(window.localStorage) ?? loadStoredGoogleAuth(window.sessionStorage);
 
     if (restoredGoogleAuth) {
+      saveStoredGoogleAuth(window.localStorage, restoredGoogleAuth);
+      clearStoredGoogleAuth(window.sessionStorage);
       queueMicrotask(() => {
         googleAccessTokenRef.current = restoredGoogleAuth.accessToken;
         setGoogleAccessToken(restoredGoogleAuth.accessToken);
@@ -700,10 +715,11 @@ export function Dashboard({
         saveGoogleSession(window.localStorage);
         const nextExpiresAt = Date.now() + response.expires_in * 1000;
 
-        saveStoredGoogleAuth(window.sessionStorage, {
+        saveStoredGoogleAuth(window.localStorage, {
           accessToken: response.access_token,
           expiresAt: nextExpiresAt,
         });
+        clearStoredGoogleAuth(window.sessionStorage);
         setGoogleAccessToken(response.access_token);
         setGoogleExpiresAt(nextExpiresAt);
         setGoogleError(null);
@@ -723,20 +739,20 @@ export function Dashboard({
       },
     });
 
-    if (loadStoredGoogleAuth(window.sessionStorage)) {
+    if (loadStoredGoogleAuth(window.localStorage)) {
       return;
     }
 
     if (!silentRestoreAttemptedRef.current && hasSavedGoogleSession(window.localStorage)) {
       silentRestoreAttemptedRef.current = true;
       queueMicrotask(() => {
-        requestAccessToken("none");
+        requestSilentGoogleTokenRefresh();
       });
     }
   }, [
     createDashboardSessionFromGoogleToken,
     googleConfigError,
-    requestAccessToken,
+    requestSilentGoogleTokenRefresh,
     resetGoogleSignedOutState,
     scriptReady,
   ]);
@@ -865,6 +881,7 @@ export function Dashboard({
         setGooglePhase("signed_out");
         setGoogleAccessToken(null);
         setGoogleExpiresAt(null);
+        clearStoredGoogleAuth(window.localStorage);
         clearStoredGoogleAuth(window.sessionStorage);
         clearSavedGoogleSession(window.localStorage);
       }
@@ -926,11 +943,25 @@ export function Dashboard({
 
     const msUntilRefresh = Math.max(googleExpiresAt - Date.now() - 60_000, 5_000);
     const timer = window.setTimeout(() => {
-      requestAccessToken("none");
+      requestSilentGoogleTokenRefresh();
     }, msUntilRefresh);
 
     return () => window.clearTimeout(timer);
-  }, [googleAccessToken, googleExpiresAt, requestAccessToken]);
+  }, [googleAccessToken, googleExpiresAt, requestSilentGoogleTokenRefresh]);
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === "hidden" || !pendingGoogleTokenRefreshRef.current) {
+        return;
+      }
+
+      requestSilentGoogleTokenRefresh();
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [requestSilentGoogleTokenRefresh]);
 
   useEffect(() => {
     return () => clearGoogleRefreshTimer();
@@ -943,6 +974,7 @@ export function Dashboard({
       window.google.accounts.oauth2.revoke(googleAccessToken, () => undefined);
     }
 
+    clearStoredGoogleAuth(window.localStorage);
     clearStoredGoogleAuth(window.sessionStorage);
     clearSavedGoogleSession(window.localStorage);
     pageSpeedRunIdRef.current += 1;

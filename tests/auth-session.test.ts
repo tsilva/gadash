@@ -60,7 +60,7 @@ test("clearSavedGoogleSession removes the stored marker", () => {
   assert.equal(storage.getItem(GOOGLE_SESSION_MARKER_KEY), null);
 });
 
-test("saveStoredGoogleAuth persists a tab-scoped token payload", () => {
+test("saveStoredGoogleAuth persists a browser-scoped token payload", () => {
   const storage = createStorage();
 
   saveStoredGoogleAuth(storage, {
