@@ -1,0 +1,19 @@
+# Credential references only. Store values with `keyenv set ENV_NAME`.
+[keyenv]
+version = 1
+
+[secrets.AUTH_SESSION_SECRET]
+account = "gadash/AUTH_SESSION_SECRET"
+required = true
+
+[secrets.GITHUB_CLIENT_SECRET]
+account = "gadash/GITHUB_CLIENT_SECRET"
+required = true
+
+[secrets.PAGESPEED_API_KEY]
+account = "gadash/PAGESPEED_API_KEY"
+required = true
+
+[secrets.SENTRY_AUTH_TOKEN]
+account = "gadash/SENTRY_AUTH_TOKEN"
+required = true
