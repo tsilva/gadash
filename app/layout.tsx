@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Outfit, Roboto } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 
 import "./globals.css";
 
@@ -81,7 +82,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${sans.variable} ${mono.variable} ${googleSans.variable}`}>{children}</body>
+      <body className={`${sans.variable} ${mono.variable} ${googleSans.variable}`}>
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
