@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Outfit, Roboto } from "next/font/google";
+import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 
 import "./globals.css";
@@ -75,6 +76,29 @@ export const viewport: Viewport = {
   themeColor: APP_CHROME_COLOR,
 };
 
+function GoogleAnalyticsTag() {
+  const measurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim();
+
+  if (!measurementId || !/^G-[A-Z0-9]+$/.test(measurementId)) return null;
+
+  return (
+    <>
+      <Script
+        src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}
+        strategy="lazyOnload"
+      />
+      <Script id="google-analytics" strategy="lazyOnload">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${measurementId}');
+        `}
+      </Script>
+    </>
+  );
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -85,6 +109,7 @@ export default function RootLayout({
       <body className={`${sans.variable} ${mono.variable} ${googleSans.variable}`}>
         {children}
         <Analytics />
+        <GoogleAnalyticsTag />
       </body>
     </html>
   );
