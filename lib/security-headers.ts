@@ -1,15 +1,17 @@
 const DEFAULT_SRC = ["'self'"];
-const SCRIPT_SRC = ["'self'", "https://accounts.google.com"];
+const SCRIPT_SRC = ["'self'", "https://accounts.google.com", "https://www.googletagmanager.com"];
 const FRAME_SRC = ["'self'", "https://accounts.google.com"];
 const CONNECT_SRC = [
   "'self'",
   "https://analyticsadmin.googleapis.com",
   "https://analyticsdata.googleapis.com",
+  "https://www.google-analytics.com",
+  "https://region1.google-analytics.com",
   "https://accounts.google.com",
   "https://oauth2.googleapis.com",
   "https://api.github.com",
 ];
-const IMG_SRC = ["'self'", "data:"];
+const IMG_SRC = ["'self'", "data:", "https://www.google-analytics.com", "https://www.googletagmanager.com"];
 const STYLE_SRC = ["'self'", "'unsafe-inline'"];
 const FONT_SRC = ["'self'", "data:"];
 const DEVELOPMENT_SCRIPT_SRC = ["'unsafe-eval'"];

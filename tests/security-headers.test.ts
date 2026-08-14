@@ -9,11 +9,18 @@ import { buildContentSecurityPolicy, getSecurityHeaders } from "../lib/security-
 test("buildContentSecurityPolicy includes a nonce and required Google origins", () => {
   const policy = buildContentSecurityPolicy("nonce123", true);
 
-  assert.match(policy, /script-src 'self' https:\/\/accounts\.google\.com 'nonce-nonce123'/);
+  assert.match(
+    policy,
+    /script-src 'self' https:\/\/accounts\.google\.com https:\/\/www\.googletagmanager\.com 'nonce-nonce123'/,
+  );
   assert.match(policy, /frame-src 'self' https:\/\/accounts\.google\.com/);
   assert.match(
     policy,
-    /connect-src 'self' https:\/\/analyticsadmin\.googleapis\.com https:\/\/analyticsdata\.googleapis\.com https:\/\/accounts\.google\.com https:\/\/oauth2\.googleapis\.com https:\/\/api\.github\.com/,
+    /connect-src 'self' https:\/\/analyticsadmin\.googleapis\.com https:\/\/analyticsdata\.googleapis\.com https:\/\/www\.google-analytics\.com https:\/\/region1\.google-analytics\.com https:\/\/accounts\.google\.com https:\/\/oauth2\.googleapis\.com https:\/\/api\.github\.com/,
+  );
+  assert.match(
+    policy,
+    /img-src 'self' data: https:\/\/www\.google-analytics\.com https:\/\/www\.googletagmanager\.com/,
   );
   assert.match(policy, /frame-ancestors 'none'/);
   assert.match(policy, /upgrade-insecure-requests/);
@@ -42,7 +49,10 @@ test("proxy applies the security headers to app routes", () => {
   const response = proxy(new NextRequest("https://gadash.tsilva.eu/"));
   const policy = response.headers.get("Content-Security-Policy") ?? "";
 
-  assert.match(policy, /script-src 'self' https:\/\/accounts\.google\.com 'nonce-/);
+  assert.match(
+    policy,
+    /script-src 'self' https:\/\/accounts\.google\.com https:\/\/www\.googletagmanager\.com 'nonce-/,
+  );
   assert.equal(response.headers.get("Referrer-Policy"), "strict-origin-when-cross-origin");
   assert.equal(response.headers.get("X-Content-Type-Options"), "nosniff");
   assert.equal(response.headers.get("Permissions-Policy"), "camera=(), microphone=(), geolocation=()");

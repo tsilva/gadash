@@ -41,6 +41,7 @@ Copy only public client configuration and non-secret defaults from
 | --- | --- |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Google OAuth client used by dashboard sign-in and GA4 token flow |
 | `NEXT_PUBLIC_GOOGLE_AUTHORIZED_ORIGINS` | Origins allowed to use Google sign-in |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 measurement ID for tracking visits to GADash itself |
 | `ALLOWED_GOOGLE_EMAILS` | Google account allowlist for server-backed dashboard actions |
 | `AUTH_SESSION_SECRET` | Production secret for signed Google dashboard and GitHub cookies |
 | `NEXT_PUBLIC_GITHUB_CLIENT_ID` | GitHub OAuth app client ID |
