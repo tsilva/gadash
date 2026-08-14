@@ -14,8 +14,8 @@ It opens directly to the dashboard. Google sign-in unlocks GA4 realtime cards an
 git clone git@github.com:tsilva/gadash.git
 cd gadash
 pnpm install
-cp .env.example .env.local
-pnpm dev
+keyenv doctor
+keyenv run -- pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000), then sign in with Google or GitHub from the top bar.
@@ -32,7 +32,10 @@ pnpm test     # run Node test runner tests through tsx
 
 ## Configuration
 
-Copy `.env.example` to `.env.local` and fill in only the integrations you plan to use.
+Private values declared in `.keyenv.toml` live in macOS Keychain and are
+injected with `keyenv run -- ...`; Node reads them through `process.env`.
+Copy only public client configuration and non-secret defaults from
+`.env.example` to `.env.local`.
 
 | Variable | Purpose |
 | --- | --- |
