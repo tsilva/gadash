@@ -102,7 +102,7 @@ export function AuthGate({ nonce }: { nonce?: string }) {
     const configError = getGateConfigError();
 
     if (configError) {
-      setError(configError);
+      queueMicrotask(() => setError(configError));
       return;
     }
 
