@@ -658,7 +658,7 @@ export function Dashboard({
       setGitHubError(message);
       setGitHubPhase("loaded");
     }
-  }, [fetchGitHubMetricsRoute, githubSummary?.login, resetGitHubSignedOutState]);
+  }, [fetchGitHubMetricsRoute, githubSummary, resetGitHubSignedOutState]);
 
   useEffect(() => {
     const restoredGoogleAuth =
