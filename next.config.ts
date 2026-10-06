@@ -8,6 +8,7 @@ const configDirectory = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  distDir: process.env.NEXT_DEV_OUTPUT_DIR || ".next",
   turbopack: {
     root: configDirectory,
   },

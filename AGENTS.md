@@ -52,3 +52,7 @@ GADash is a **client-side-only** Next.js (App Router) dashboard that displays GA
 - **Styling**: Plain CSS with CSS variables in `globals.css` — no CSS framework.
 - **Path aliases**: `@/*` maps to project root.
 - **README.md** must be kept up to date with any significant project changes.
+
+## Secrets
+
+Use the human Infisical CLI login and fixed development project in `.infisical.json`. Default dev fetches only the application allowlist. Production is isolated in `gadash-production`, Production `/`, synced to Vercel Production; redeploy after changes. Never print credentials, add plaintext dotenv exports, or broaden access. Preserve original Keychain accounts until migration and rotation are verified. Run `pnpm test:secrets` alongside app checks after changing secret handling.
