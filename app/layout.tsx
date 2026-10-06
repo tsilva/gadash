@@ -1,7 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Outfit, Roboto } from "next/font/google";
-import Script from "next/script";
+import { cookies, headers } from "next/headers";
 import { Analytics } from "@vercel/analytics/next";
+
+import { GoogleAnalyticsTag } from "@/components/google-analytics";
+import { ANALYTICS_CONSENT_COOKIE } from "@/lib/google-analytics";
+import { NONCE_HEADER_NAME } from "@/lib/security-headers";
 
 import "./globals.css";
 
@@ -76,40 +80,24 @@ export const viewport: Viewport = {
   themeColor: APP_CHROME_COLOR,
 };
 
-function GoogleAnalyticsTag() {
-  const measurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim();
-
-  if (!measurementId || !/^G-[A-Z0-9]+$/.test(measurementId)) return null;
-
-  return (
-    <>
-      <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}
-        strategy="lazyOnload"
-      />
-      <Script id="google-analytics" strategy="lazyOnload">
-        {`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', '${measurementId}');
-        `}
-      </Script>
-    </>
-  );
-}
-
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headerStore = await headers();
+  const cookieStore = await cookies();
+
   return (
     <html lang="en">
       <body className={`${sans.variable} ${mono.variable} ${googleSans.variable}`}>
         {children}
         <Analytics />
-        <GoogleAnalyticsTag />
+        <GoogleAnalyticsTag
+          measurementId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}
+          nonce={headerStore.get(NONCE_HEADER_NAME) ?? undefined}
+          consent={cookieStore.get(ANALYTICS_CONSENT_COOKIE)?.value}
+        />
       </body>
     </html>
   );
