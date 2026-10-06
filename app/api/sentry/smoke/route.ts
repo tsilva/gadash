@@ -20,13 +20,21 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  if (!Sentry.isEnabled()) {
+    return NextResponse.json({ error: "Sentry is disabled" }, { status: 503 });
+  }
+
   const eventId = Sentry.captureException(new Error("Sentry smoke test"), {
     tags: {
       smoke_test: "true",
     },
   });
 
-  await Sentry.flush(2_000);
+  const queueFlushed = await Sentry.flush(2_000);
 
-  return NextResponse.json({ ok: true, eventId });
+  // Draining the SDK queue does not prove acceptance or dashboard visibility.
+  return NextResponse.json(
+    { eventId, queueFlushed },
+    { status: queueFlushed ? 200 : 503, headers: { "Cache-Control": "no-store" } },
+  );
 }

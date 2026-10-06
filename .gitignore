@@ -12,3 +12,7 @@ tsconfig.tsbuildinfo
 
 .vercel
 .env*.local
+
+.next-dev-*
+__pycache__/
+*.py[cod]
