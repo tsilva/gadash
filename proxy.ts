@@ -18,7 +18,11 @@ export function proxy(request: NextRequest) {
     },
   });
 
-  for (const header of getSecurityHeaders(nonce, process.env.NODE_ENV === "production")) {
+  for (const header of getSecurityHeaders(
+    nonce,
+    process.env.NODE_ENV === "production",
+    process.env.NEXT_PUBLIC_SENTRY_DSN,
+  )) {
     response.headers.set(header.key, header.value);
   }
 

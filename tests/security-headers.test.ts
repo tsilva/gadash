@@ -35,6 +35,43 @@ test("buildContentSecurityPolicy adds dev-only script and websocket allowances",
   assert.doesNotMatch(policy, /upgrade-insecure-requests/);
 });
 
+test("CSP permits only the configured Sentry ingestion origin without exposing its key", () => {
+  const policy = buildContentSecurityPolicy(
+    "nonce123",
+    true,
+    " https://example-public-key@o123.ingest.de.sentry.io/456 ",
+  );
+  const connectSrc = policy.split("; ").find((directive) => directive.startsWith("connect-src "));
+
+  assert.ok(connectSrc?.split(" ").includes("https://o123.ingest.de.sentry.io"));
+  assert.doesNotMatch(policy, /example-public-key|\/456|\*\.sentry\.io/);
+  assert.doesNotMatch(policy, /script-src[^;]*sentry/);
+});
+
+test("CSP remains unchanged for missing, invalid, or unsafe Sentry URLs", () => {
+  const baseline = buildContentSecurityPolicy("nonce123", true);
+
+  for (const dsn of [undefined, "", "invalid", "http://key@sentry.example/1", "javascript:alert(1)", "https://*.sentry.io/1", "https://sentry.example;evil/1"]) {
+    assert.equal(buildContentSecurityPolicy("nonce123", true, dsn), baseline);
+  }
+});
+
+test("proxy passes the browser DSN to the response CSP", () => {
+  const previous = process.env.NEXT_PUBLIC_SENTRY_DSN;
+  process.env.NEXT_PUBLIC_SENTRY_DSN = "https://example-public-key@sentry.example:8443/123";
+
+  try {
+    const response = proxy(new NextRequest("https://gadash.tsilva.eu/"));
+    const policy = response.headers.get("Content-Security-Policy") ?? "";
+
+    assert.match(policy, /connect-src[^;]*https:\/\/sentry\.example:8443/);
+    assert.doesNotMatch(policy, /example-public-key/);
+  } finally {
+    if (previous === undefined) delete process.env.NEXT_PUBLIC_SENTRY_DSN;
+    else process.env.NEXT_PUBLIC_SENTRY_DSN = previous;
+  }
+});
+
 test("getSecurityHeaders returns the expected non-CSP headers", () => {
   const headers = getSecurityHeaders("nonce123", true);
   const headerMap = new Map(headers.map((header) => [header.key, header.value]));

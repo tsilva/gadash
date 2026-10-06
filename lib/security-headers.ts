@@ -24,9 +24,26 @@ export type SecurityHeader = {
   value: string;
 };
 
-export function buildContentSecurityPolicy(nonce: string, isProduction: boolean): string {
+export function buildContentSecurityPolicy(
+  nonce: string,
+  isProduction: boolean,
+  sentryDsn?: string,
+): string {
   const scriptSrc = [...SCRIPT_SRC, `'nonce-${nonce}'`];
   const connectSrc = [...CONNECT_SRC];
+
+  if (sentryDsn?.trim()) {
+    try {
+      const url = new URL(sentryDsn.trim());
+
+      // Permit only the browser SDK's configured ingestion origin, without its key or path.
+      if (url.protocol === "https:" && !/[;'\s*]/.test(url.origin)) {
+        connectSrc.push(url.origin);
+      }
+    } catch {
+      // An invalid DSN must not weaken the policy or break every response.
+    }
+  }
 
   if (!isProduction) {
     scriptSrc.push(...DEVELOPMENT_SCRIPT_SRC);
@@ -54,11 +71,15 @@ export function buildContentSecurityPolicy(nonce: string, isProduction: boolean)
   return directives.join("; ");
 }
 
-export function getSecurityHeaders(nonce: string, isProduction: boolean): SecurityHeader[] {
+export function getSecurityHeaders(
+  nonce: string,
+  isProduction: boolean,
+  sentryDsn?: string,
+): SecurityHeader[] {
   return [
     {
       key: "Content-Security-Policy",
-      value: buildContentSecurityPolicy(nonce, isProduction),
+      value: buildContentSecurityPolicy(nonce, isProduction, sentryDsn),
     },
     {
       key: "Referrer-Policy",
