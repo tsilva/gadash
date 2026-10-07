@@ -1,8 +1,10 @@
-<div align="center">
+<p align="center">
   <img src="./logo.png" alt="GADash logo" width="96" height="96" />
-
-  **📊 Private realtime dashboard for sites and code 📊**
-</div>
+  <br />
+  <!-- repo-tagline:start -->
+  <strong>📊 Private realtime dashboard for sites and code 📊</strong>
+  <!-- repo-tagline:end -->
+</p>
 
 GADash is a private Next.js dashboard for checking GA4 realtime activity, GitHub account momentum, and PageSpeed health from one screen.
 
