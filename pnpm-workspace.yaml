@@ -1,2 +1,10 @@
 minimumReleaseAge: 10080
 blockExoticSubdeps: true
+
+overrides:
+  "@next/eslint-plugin-next>fast-glob": npm:tinyglobby@0.2.15
+  source-map-js: 1.2.2
+
+# User-approved exception for this security patch only.
+minimumReleaseAgeExclude:
+  - source-map-js@1.2.2

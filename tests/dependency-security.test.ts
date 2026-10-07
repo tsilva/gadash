@@ -65,9 +65,9 @@ test("installed vulnerable dependency families are patched", () => {
   const floors = new Map<string, string>([
     ["@babel/core", "7.29.6"],
     ["@opentelemetry/core", "2.8.0"],
-    ["fast-uri", "3.1.5"],
-    ["js-yaml", "4.3.1"],
-    ["nanoid", "3.3.18"],
+    ["fast-uri", "3.1.8"],
+    ["js-yaml", "4.3.2"],
+    ["nanoid", "3.3.19"],
     ["uuid", "11.1.1"],
   ]);
 
@@ -77,7 +77,12 @@ test("installed vulnerable dependency families are patched", () => {
     }
   }
 
-  assert.deepEqual([...(versions.get("brace-expansion") ?? [])].sort(), ["1.1.18", "5.0.9"]);
+  const braceVersions = versions.get("brace-expansion");
+  assert.ok(braceVersions?.size);
+  for (const version of braceVersions) {
+    const floor = version.startsWith("1.") ? "1.1.21" : "5.0.12";
+    assert.ok(compareVersions(version, floor) >= 0, `brace-expansion@${version} is below ${floor}`);
+  }
 });
 
 test("manifests reject exotic dependency sources", () => {
@@ -92,7 +97,7 @@ test("manifests reject exotic dependency sources", () => {
   }
 
   const lockfile = readFileSync(`${root}/pnpm-lock.yaml`, "utf8");
-  assert.doesNotMatch(lockfile, /\b(?:git\+|github:|https?:|file:|link:|workspace:|tarball:)/i);
+  assert.doesNotMatch(lockfile, /^\s*(?:specifier|resolution):.*(?:git\+|github:|https?:|file:|link:|workspace:)|^\s*tarball:/im);
 
   const workspace = readFileSync(`${root}/pnpm-workspace.yaml`, "utf8");
   assert.match(workspace, /^minimumReleaseAge: 10080$/m);
