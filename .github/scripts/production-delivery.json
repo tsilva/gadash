@@ -17,5 +17,12 @@
   "destination": "vercel",
   "vercelProjectId": "prj_eLMY5DO2PWkmiNMpoCi6p5CRFXWw",
   "vercelProjectName": "gadash",
-  "vercelTeamId": "team_eE2Iv7IMqPOx8ZVN2xNfR2f0"
+  "vercelTeamId": "team_eE2Iv7IMqPOx8ZVN2xNfR2f0",
+  "configNames": [
+    "NEXT_PUBLIC_SENTRY_DSN",
+    "SENTRY_BASE_URL",
+    "SENTRY_DSN",
+    "SENTRY_ORG",
+    "SENTRY_PROJECT"
+  ]
 }
