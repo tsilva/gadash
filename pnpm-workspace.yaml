@@ -2,6 +2,9 @@ minimumReleaseAge: 10080
 blockExoticSubdeps: true
 
 overrides:
+  "fast-uri": "3.1.9"
+  "zod@>=4 <4.6.6": "4.6.6"
+  "eslint-plugin-react-hooks>zod": "4.6.6"
   "@next/eslint-plugin-next>fast-glob": npm:tinyglobby@0.2.15
   source-map-js: 1.2.2
 
