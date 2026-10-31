@@ -11,14 +11,14 @@
     "start": "node scripts/dev-server.mjs next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/**/*.test.ts tests/**/*.test.tsx",
+    "test": "pnpm test:dependency-security && node --import tsx --test tests/**/*.test.ts tests/**/*.test.tsx",
     "audit": "pnpm audit --audit-level low",
     "dev:app": "node scripts/dev-server.mjs next dev",
     "build:secrets": "python3 scripts/infisical/run.py build",
     "start:secrets": "python3 scripts/infisical/run.py start",
     "secrets:check": "python3 scripts/infisical/run.py check",
-    "secrets:migrate:keyenv": "python3 scripts/infisical/migrate_keyenv.py",
-    "test:secrets": "python3 -m unittest discover -s scripts/infisical -p test_secrets.py"
+    "test:secrets": "python3 -m unittest discover -s scripts/infisical -p test_secrets.py",
+    "test:dependency-security": "node --test scripts/dependency-next-glob.test.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "10.75.2",
