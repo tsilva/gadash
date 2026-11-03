@@ -51,7 +51,7 @@ Copy only public client configuration and non-secret defaults from
 | `NEXT_PUBLIC_GA_PROPERTIES_JSON` | Optional fallback GA4 property list when Admin API discovery is unavailable |
 | `PAGESPEED_API_KEY` | Optional PageSpeed Insights API key for server-side checks |
 | `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_DSN` | Optional browser and server Sentry reporting |
-| `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` | Optional Sentry source-map upload configuration |
+| `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` | Optional source-map upload configuration for hosted Vercel builds |
 
 ### Sentry delivery verification
 
