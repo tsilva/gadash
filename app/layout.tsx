@@ -6,24 +6,11 @@ import { Analytics } from "@vercel/analytics/next";
 import { GoogleAnalyticsTag } from "@/components/google-analytics";
 import { ANALYTICS_CONSENT_COOKIE } from "@/lib/google-analytics";
 import { NONCE_HEADER_NAME } from "@/lib/security-headers";
+import { getSiteUrl } from "@/lib/site-url";
 
 import "./globals.css";
 
 const APP_CHROME_COLOR = "#09090b";
-const DEFAULT_SITE_URL = "http://localhost:3000";
-
-function getMetadataBase(): URL {
-  const configuredUrl =
-    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL.trim()}`
-      : "") ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL.trim()}` : "") ||
-    DEFAULT_SITE_URL;
-
-  return new URL(configuredUrl);
-}
-
 const sans = Outfit({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600"],
@@ -43,8 +30,9 @@ const googleSans = Roboto({
 });
 
 export const metadata: Metadata = {
-  metadataBase: getMetadataBase(),
-  title: "GADash - Real-time GA4 Dashboard for Next.js",
+  metadataBase: getSiteUrl(),
+  alternates: { canonical: "/" },
+  title: "Real-Time Google Analytics 4 Dashboard | GADash",
   description:
     "A client-side Next.js application that auto-discovers and displays real-time GA4 analytics properties using Google OAuth and Data APIs.",
   keywords: [
@@ -63,6 +51,7 @@ export const metadata: Metadata = {
     description:
       "Securely visualize GA4 data with automatic property discovery. Built with Next.js, Google OAuth, and the GA4 Data API for real-time insights.",
     type: "website",
+    url: "/",
   },
   twitter: {
     card: "summary_large_image",

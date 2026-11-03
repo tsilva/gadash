@@ -75,6 +75,8 @@ To verify delivery after an approved deployment and test visit, record a success
 
 ## Notes
 
+The public dashboard homepage is listed in `/sitemap.xml`. Canonical metadata and the sitemap default to `https://gadash.tsilva.eu` and support a `NEXT_PUBLIC_SITE_URL` override for other hosts.
+
 - This is a Next.js App Router project using pnpm 10.27.0, React 19.2, TypeScript, and plain CSS.
 - The repo enforces pnpm in `preinstall`.
 - GA4 realtime data polls every 30 seconds after Google Analytics consent.
