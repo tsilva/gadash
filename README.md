@@ -1,3 +1,10 @@
+<!-- archive-repo:deprecation-notice:start -->
+> [!WARNING]
+> **Deprecated**
+>
+> GaDash has been retired. The features we used from GaDash, including live Google Analytics counts and GitHub repository stars, are now available in [RepoMan](https://github.com/tsilva/repoman).
+<!-- archive-repo:deprecation-notice:end -->
+
 <p align="center">
   <img src="./logo.png" alt="GADash logo" width="96" height="96" />
   <br />
