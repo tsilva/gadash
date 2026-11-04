@@ -1,17 +1,42 @@
-# Production delivery
+# Archived production delivery design
 
-Push to `main` triggers `.github/workflows/production-delivery.yml`. After secret scanning, it calls the trusted workflow in public `tsilva/.github`, pinned to a reviewed full commit SHA. The privileged job checks out only the shared implementation, waits for the same latest main commit's CI, syncs its fixed Production allowlist, deploys that exact commit, and verifies the resulting READY deployment. Vercel's automatic Git deployments remain disabled so they cannot race synchronization.
+GADash is retired. The repository is preserved for reference, GitHub Actions is
+disabled, and the production caller has no automatic trigger and skips both
+jobs. The source does not establish that any former hosted service, OAuth app,
+credential, webhook, or domain is still active. Do not dispatch delivery or
+resume service synchronization as part of archive maintenance.
 
-Infisical remains the source of application secrets. Development uses the existing human CLI login. The shared GitHub reader has Viewer access to the assigned production vaults, and the completed rollout requires its server-side OIDC policy to match the exact approved reusable workflow revision, caller repository IDs, owner ID, main branch and Production context. The trusted `apps.json` selects the source vault and destination from the immutable caller repository ID; app files and inputs cannot change that mapping. The reader itself can access all assigned vaults inside the trusted job. Its token and fetched values never leave that job. The Vercel deployment credential remains in this repository's GitHub Production environment.
+## Historical design
 
-The pinned shared source and [trust contract](https://github.com/tsilva/.github/blob/e0c6d64d4fc917ea0e108d27ce8d1a5304aeb3c6/.github/actions/production-delivery/README.md) are authoritative. App repositories retain only the pinned caller workflow. Source/destination mappings, credential handling and boundary tests are maintained centrally; no app code executes in the privileged job.
+The production caller pinned a reusable workflow in `tsilva/.github` to a full
+commit SHA. Its privileged job checked out the trusted shared implementation,
+waited for CI on the exact latest main commit, synchronized an application
+allowlist from an isolated production vault, deployed that commit, and verified
+a READY deployment. App code and inputs could not select arbitrary source
+vaults or destinations. Vercel automatic Git deployments were disabled to avoid
+racing secret synchronization.
 
-The workflow does not run on pull requests or forks, export `.env` files, upload secret artifacts, delete secret variables, or change preview/development variables. All required source keys and destination targets are checked before writes. Failed CI or sync prevents deployment. Existing production remains live on failure.
+A standalone relay verified signed secret-change notifications, retained pending
+routing metadata, coalesced bursts, and dispatched the fixed production entry
+workflow. An acknowledgement established acceptance, not deployment success.
+The caller's pinned reusable workflow and its trust contract describe the
+implementation; they do not guarantee current compatibility or authorization.
 
-Automatic secret-change delivery uses a standalone Cloudflare Worker with a private GitHub App, independent of application deployments. Each vault's signed General webhook is restricted to `prod`, `/`, and `secrets.modified`. The relay receives event metadata and never fetches application secrets. It verifies raw-body HMACs and timestamps, stores pending routing metadata durably, coalesces bursts and retries dispatches during GitHub outages. A per-repository installation token starts only the fixed entry workflow on `main`. The relay endpoint is `https://production-deployment-relay.tsilva-production-delivery.workers.dev/infisical`. Webhook activation and per-app live verification are required before calling the automatic path operational.
+## Requirements for an independent fork
 
-Use **Actions → Production delivery → Run workflow → main** to recover after fixing a failed workflow. A relay acknowledgement confirms durable acceptance, and a GitHub dispatch acknowledgement confirms only that the run was accepted. Neither confirms deployment success. There is no polling schedule. Deployment credentials expire after one year and need rotation before expiry.
+Before enabling delivery, review the current shared implementation and establish
+your own vault, destination project, narrowly scoped credentials, OIDC trust,
+and OAuth registrations. Do not reuse the original application's identities or
+assume its immutable repository mapping applies to another repository.
 
-Native Infisical syncs are disabled after this workflow has successfully replaced them. Updating a deployment credential in GitHub does not replace application keys in Infisical.
+Keep Production credentials separate from Preview and Development, retain
+Vercel's Require Separate Values policy, and classify public configuration
+explicitly. Do not export plaintext environment files, log credentials, or
+upload secret artifacts. A failed check or synchronization must prevent
+deployment. Verify CI, synchronization, the exact deployed commit, READY state,
+and domain routing before describing a restored deployment as operational.
 
-Production delivery classifies public settings through the pinned `configNames` list; all other allowlisted values remain write-only Secrets. Vercel’s Require Separate Values policy stays enabled: real Production secrets must differ from non-production values. Existing variables are updated by their exact Production IDs. A legacy Secret explicitly listed as public configuration is replaced only in Production because Vercel cannot convert it to Config in place; Preview and Development rows are preserved. Provider responses and credential values are never logged. A failed sync holds deployment; rerun delivery after fixing the named key at its source.
+Reactivation also requires reviewing dependency age exceptions, branch rules,
+Actions permissions and full-SHA pinning, Dependabot policy, relay routes, and
+credential expiration. Re-enable automation only after those checks and explicit
+authorization. Preserve an archived original when experimenting in a fork.

@@ -16,3 +16,5 @@ tsconfig.tsbuildinfo
 .next-dev-*
 __pycache__/
 *.py[cod]
+
+/.internal/

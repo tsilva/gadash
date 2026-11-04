@@ -3,6 +3,8 @@
 > **Deprecated**
 >
 > GaDash has been retired. The features we used from GaDash, including live Google Analytics counts and GitHub repository stars, are now available in [RepoMan](https://github.com/tsilva/repoman).
+>
+> This repository is preserved as a historical reference. It receives no maintenance, dependency updates, or production deployments. The configuration below describes the archived application; it does not imply that its former hosted services remain available.
 <!-- archive-repo:deprecation-notice:end -->
 
 <p align="center">
@@ -17,22 +19,25 @@ GADash is a private Next.js dashboard for checking GA4 realtime activity, GitHub
 
 It opens directly to the dashboard. Google sign-in unlocks GA4 realtime cards and PageSpeed checks, while GitHub sign-in unlocks profile, repository, and contribution metrics through server route handlers.
 
-## Install
+## Explore the archived source
+
+Use your own configuration if you choose to run a fork. Dependencies are frozen at their archived versions and need a fresh security review before any public deployment.
 
 ```bash
-git clone git@github.com:tsilva/gadash.git
+git clone https://github.com/tsilva/gadash.git
 cd gadash
-pnpm install
-pnpm secrets:check
-pnpm dev
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm dev:app --port auto
 ```
 
-Open the URL printed by the development server, then sign in with Google or GitHub from the top bar. Normal `pnpm dev` uses Next.js port 3000 to match the OAuth provider configuration. `pnpm dev --port auto` supports an isolated check; Google/GitHub sign-in at that random origin requires registering it with those providers.
+Open the URL printed by the development server. This starts the application without fetching credentials. Google and GitHub features require your own OAuth applications and allowed origins. Register the printed origin and callback URL with those providers before attempting sign-in.
+
+The historical `pnpm dev`, `build:secrets`, `start:secrets`, and `secrets:check` launchers fetch credentials through the former project binding. They are retained for source history and are not supported setup commands. Review and provision a scoped credential broker before using any credential-bearing launcher; do not reuse the retired project's service accounts.
 
 ## Commands
 
 ```bash
-pnpm dev      # start the local Next.js server
+pnpm dev:app --port auto # start without fetching credentials
 pnpm build    # create a production build
 pnpm start    # run the production build locally
 pnpm lint     # run ESLint
@@ -41,9 +46,9 @@ pnpm test     # run Node test runner tests through tsx
 
 ## Configuration
 
-Production credentials live separately in `gadash-production`, Production `/`, with automatic sync to Vercel Production. Redeploy after secret changes; existing deployments retain their environment snapshot. Public configuration remains in Vercel. Keychain originals are retained until migration and rotation are verified.
-Copy only public client configuration and non-secret defaults from
-`.env.example` to `.env.local`.
+The former production delivery setup is retired. See [production delivery](docs/production-delivery.md) for the preserved design and requirements for an independently configured fork. `.infisical.json` is historical project metadata, not an approved credential-brokering route.
+
+`.env.example` documents the expected variable names using placeholders. Supply your own public client configuration and configure private credentials through a reviewed service-specific broker. Keep credential values out of Git, logs, and shared reports.
 
 | Variable | Purpose |
 | --- | --- |
@@ -78,7 +83,7 @@ For GitHub, create an OAuth App with `http://localhost:3000/api/github/oauth/cal
 
 The website tracking preference is separate from Google OAuth permissions. The Google tag stays unloaded until the visitor selects **Allow Google Analytics**. A first-party preference cookie remembers the choice for 180 days; **Decline** or **Disable Google Analytics** stops collection and reloads the page without the tag. Advertising consent remains denied. Both Google scripts receive the request CSP nonce and initialize after hydration, without waiting for browser idle time.
 
-To verify delivery after an approved deployment and test visit, record a successful browser response to a Google Analytics `/g/collect` request with `en=page_view`, after tracking consent. Privately compare the request destination with the intended stream, then confirm the corresponding pageview in that stream's GA4 Realtime or DebugView report. A detected tag or successful HTTP response alone does not confirm GA4 receipt. Do not share measurement IDs, cookies, tokens, or raw request URLs in verification logs. See [the current verification record](docs/analytics-delivery-verification.md).
+To verify delivery after an approved deployment and test visit, record a successful browser response to a Google Analytics `/g/collect` request with `en=page_view`, after tracking consent. Privately compare the request destination with the intended stream, then confirm the corresponding pageview in that stream's GA4 Realtime or DebugView report. A detected tag or successful HTTP response alone does not confirm GA4 receipt. Do not share measurement IDs, cookies, tokens, or raw request URLs in verification logs.
 
 ## Notes
 
@@ -101,8 +106,6 @@ The public dashboard homepage is listed in `/sitemap.xml`. Canonical metadata an
 
 This project is licensed under the [MIT License](LICENSE).
 
-Production secrets are delivered through the pinned shared GitHub Actions workflow. The standalone signed Infisical relay triggers synchronization and deployment; see [production delivery](docs/production-delivery.md) for scope and recovery.
-
-Production delivery keeps Vercel secret isolation enabled and distinguishes public configuration from private credentials; see [production delivery](docs/production-delivery.md).
+The archived workflow files document the former build and delivery design. Repository-wide GitHub Actions is disabled, the production caller is inert, and scheduled Dependabot version updates are stopped. Reactivating a fork requires reviewing credentials, dependencies, OAuth registrations, telemetry, and deployment policy first; see [production delivery](docs/production-delivery.md).
 
 Dependency security checks pin the fixed matcher and traversal packages. The seven-day package hold remains enabled with exact approved exceptions for `minimatch@11.0.1`, `@isaacs/nonrecursive-glob-match@1.0.1`, `glob@14.0.2`, and `path-scurry@3.0.0`. The patches in [`patches/`](patches/) preserve legacy ESLint imports and migrate its internal-module rule to the safe matcher API. The existing test command includes compatibility, adversarial-pattern, cancellation, and Next/Sentry file-selection regressions; these run locally without service credentials or source-map uploads.

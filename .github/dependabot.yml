@@ -9,7 +9,8 @@ updates:
       timezone: Europe/Lisbon
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 5
+    # Retired repository: retain the update policy without scheduling new PRs.
+    open-pull-requests-limit: 0
     groups:
       security-updates:
         applies-to: security-updates
@@ -32,7 +33,7 @@ updates:
       timezone: Europe/Lisbon
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     groups:
       minor-and-patch:
         update-types:

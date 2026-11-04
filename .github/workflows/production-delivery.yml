@@ -1,8 +1,6 @@
 name: Production delivery
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -14,12 +12,14 @@ concurrency:
 
 jobs:
   secrets:
+    # Archived reference only. Reactivation requires an explicit policy review.
+    if: ${{ false }}
     name: Check committed secrets before production delivery
     uses: ./.github/workflows/secret-scanning.yml
 
   deliver:
     needs: secrets
-    if: github.ref == 'refs/heads/main'
+    if: ${{ false }}
     permissions:
       contents: read
       actions: read
